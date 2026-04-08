@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Instrument+Serif:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Space+Grotesk:wght@300..700&family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Instrument+Serif:ital@0;1&family=Bebas+Neue&family=Montserrat:wght@100..900&family=Oswald:wght@200..700&family=Raleway:wght@100..900&family=Poppins:wght@100..900&family=Lato:wght@100..900&family=Nunito:wght@200..900&family=Anton&family=Archivo+Black&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -111,6 +111,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter Tight', system-ui, sans-serif;
+    -webkit-tap-highlight-color: transparent;
+    overscroll-behavior: none;
   }
 }
 
@@ -125,13 +127,16 @@
     @apply bg-editor-surface border border-editor-border rounded-md px-2 py-1.5 text-xs text-editor-text-bright focus:outline-none focus:ring-1 focus:ring-ring transition-colors;
   }
   .editor-btn {
-    @apply flex items-center justify-center rounded-md p-1.5 text-editor-text hover:text-editor-text-bright hover:bg-editor-hover transition-colors;
+    @apply flex items-center justify-center rounded-md p-1.5 text-editor-text hover:text-editor-text-bright hover:bg-editor-hover transition-colors active:scale-95;
   }
   .editor-btn-active {
     @apply bg-primary/20 text-primary;
   }
   .editor-label {
     @apply text-[10px] uppercase tracking-wider text-muted-foreground font-medium;
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 }
 
@@ -144,8 +149,8 @@
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
@@ -163,4 +168,10 @@
 
 .slide-thumb-active {
   box-shadow: 0 0 0 2px hsl(210 100% 60%);
+}
+
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

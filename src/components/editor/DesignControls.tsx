@@ -1,9 +1,10 @@
-import { useEditorStore, FORMAT_PRESETS } from '@/stores/editorStore';
+import { useEditorStore, FORMAT_PRESETS, GradientStop } from '@/stores/editorStore';
 import { useCallback, useEffect, useState } from 'react';
 import { fabric } from 'fabric';
 import SliderInput from './SliderInput';
 import RecentColors from './RecentColors';
 import AlignmentTools from './AlignmentTools';
+import { Plus, Trash2 } from 'lucide-react';
 
 export default function DesignControls() {
   const { format, setFormat, fabricCanvas, activeSlideIndex, updateSlide, pushHistory, addRecentColor } = useEditorStore();
@@ -15,9 +16,12 @@ export default function DesignControls() {
   const [opacity, setOpacity] = useState(100);
   const [rotation, setRotation] = useState(0);
   const [gradientEnabled, setGradientEnabled] = useState(false);
-  const [gradientColor1, setGradientColor1] = useState('#000000');
-  const [gradientColor2, setGradientColor2] = useState('rgba(0,0,0,0)');
+  const [gradientType, setGradientType] = useState<'linear' | 'radial'>('linear');
   const [gradientAngle, setGradientAngle] = useState(0);
+  const [gradientStops, setGradientStops] = useState<GradientStop[]>([
+    { offset: 0, color: '#000000', opacity: 1 },
+    { offset: 1, color: '#000000', opacity: 0 },
+  ]);
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -32,7 +36,18 @@ export default function DesignControls() {
         setStrokeWidth(obj.strokeWidth || 0);
         setOpacity(Math.round((obj.opacity || 1) * 100));
         setRotation(Math.round(obj.angle || 0));
-        setGradientEnabled(obj.fill instanceof fabric.Gradient);
+        const isGrad = obj.fill instanceof fabric.Gradient;
+        setGradientEnabled(isGrad);
+        if (isGrad) {
+          const g = obj.fill as fabric.Gradient;
+          setGradientType((g.type as 'linear' | 'radial') || 'linear');
+          const stops = (g.colorStops || []).map((s: any) => ({
+            offset: s.offset,
+            color: s.color.startsWith('rgba') ? '#000000' : s.color,
+            opacity: s.opacity !== undefined ? s.opacity : 1,
+          }));
+          if (stops.length >= 2) setGradientStops(stops);
+        }
       }
     };
     const onClear = () => setSelectedObj(null);
@@ -65,54 +80,99 @@ export default function DesignControls() {
     pushHistory();
   }, [fabricCanvas, selectedObj, pushHistory]);
 
-  const applyGradient = (c1: string, c2: string, angle: number) => {
+  const applyGradient = useCallback((stops: GradientStop[], angle: number, type: 'linear' | 'radial') => {
     if (!selectedObj || !fabricCanvas) return;
-    const rad = (angle * Math.PI) / 180;
-    const x1 = Math.round(50 + Math.sin(rad) * -50);
-    const y1 = Math.round(50 + Math.cos(rad) * 50);
-    const x2 = Math.round(50 + Math.sin(rad) * 50);
-    const y2 = Math.round(50 + Math.cos(rad) * -50);
 
-    const gradient = new fabric.Gradient({
-      type: 'linear',
-      coords: {
-        x1: (x1 / 100) * (selectedObj.width || 100),
-        y1: (y1 / 100) * (selectedObj.height || 100),
-        x2: (x2 / 100) * (selectedObj.width || 100),
-        y2: (y2 / 100) * (selectedObj.height || 100),
-      },
-      colorStops: [
-        { offset: 0, color: c1 },
-        { offset: 1, color: c2 },
-      ],
-    });
+    const colorStops = stops.map(s => ({
+      offset: s.offset,
+      color: s.opacity < 1
+        ? `rgba(${parseInt(s.color.slice(1, 3), 16)},${parseInt(s.color.slice(3, 5), 16)},${parseInt(s.color.slice(5, 7), 16)},${s.opacity})`
+        : s.color,
+    }));
 
-    selectedObj.set({ fill: gradient });
+    if (type === 'linear') {
+      const rad = (angle * Math.PI) / 180;
+      const x1 = Math.round(50 + Math.sin(rad) * -50);
+      const y1 = Math.round(50 + Math.cos(rad) * 50);
+      const x2 = Math.round(50 + Math.sin(rad) * 50);
+      const y2 = Math.round(50 + Math.cos(rad) * -50);
+
+      const gradient = new fabric.Gradient({
+        type: 'linear',
+        coords: {
+          x1: (x1 / 100) * (selectedObj.width || 100),
+          y1: (y1 / 100) * (selectedObj.height || 100),
+          x2: (x2 / 100) * (selectedObj.width || 100),
+          y2: (y2 / 100) * (selectedObj.height || 100),
+        },
+        colorStops,
+      });
+      selectedObj.set({ fill: gradient });
+    } else {
+      const gradient = new fabric.Gradient({
+        type: 'radial',
+        coords: {
+          x1: (selectedObj.width || 100) / 2,
+          y1: (selectedObj.height || 100) / 2,
+          r1: 0,
+          x2: (selectedObj.width || 100) / 2,
+          y2: (selectedObj.height || 100) / 2,
+          r2: Math.max(selectedObj.width || 100, selectedObj.height || 100) / 2,
+        },
+        colorStops,
+      });
+      selectedObj.set({ fill: gradient });
+    }
+
     fabricCanvas.renderAll();
     pushHistory();
-  };
+  }, [selectedObj, fabricCanvas, pushHistory]);
 
   const handleFillChange = (color: string) => {
     setFillColor(color);
     addRecentColor(color);
     if (gradientEnabled) {
-      setGradientColor1(color);
-      applyGradient(color, gradientColor2, gradientAngle);
+      const newStops = [...gradientStops];
+      newStops[0] = { ...newStops[0], color };
+      setGradientStops(newStops);
+      applyGradient(newStops, gradientAngle, gradientType);
     } else {
       applyToSelected({ fill: color });
     }
   };
 
+  const updateStop = (index: number, updates: Partial<GradientStop>) => {
+    const newStops = [...gradientStops];
+    newStops[index] = { ...newStops[index], ...updates };
+    newStops.sort((a, b) => a.offset - b.offset);
+    setGradientStops(newStops);
+    applyGradient(newStops, gradientAngle, gradientType);
+  };
+
+  const addStop = () => {
+    const newStops = [...gradientStops, { offset: 0.5, color: '#888888', opacity: 1 }];
+    newStops.sort((a, b) => a.offset - b.offset);
+    setGradientStops(newStops);
+    applyGradient(newStops, gradientAngle, gradientType);
+  };
+
+  const removeStop = (index: number) => {
+    if (gradientStops.length <= 2) return;
+    const newStops = gradientStops.filter((_, i) => i !== index);
+    setGradientStops(newStops);
+    applyGradient(newStops, gradientAngle, gradientType);
+  };
+
   return (
-    <div className="space-y-5 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <div>
         <label className="editor-label mb-2 block">Canvas Format</label>
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {FORMAT_PRESETS.map((preset) => (
             <button
               key={preset.name}
               onClick={() => setFormat(preset)}
-              className={`w-full text-left px-3 py-2 rounded-md text-xs transition-colors ${
+              className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors ${
                 format.name === preset.name ? 'bg-primary/20 text-primary' : 'text-editor-text hover:bg-editor-hover'
               }`}
             >
@@ -149,7 +209,7 @@ export default function DesignControls() {
                     const next = !gradientEnabled;
                     setGradientEnabled(next);
                     if (next) {
-                      applyGradient(gradientColor1, gradientColor2, gradientAngle);
+                      applyGradient(gradientStops, gradientAngle, gradientType);
                     } else {
                       applyToSelected({ fill: fillColor });
                     }
@@ -162,19 +222,53 @@ export default function DesignControls() {
             </div>
 
             {gradientEnabled ? (
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <input type="color" value={gradientColor1} onChange={(e) => { setGradientColor1(e.target.value); applyGradient(e.target.value, gradientColor2, gradientAngle); }} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-                  <span className="text-[10px] text-muted-foreground">→</span>
-                  <input type="color" value={gradientColor2 === 'rgba(0,0,0,0)' ? '#000000' : gradientColor2} onChange={(e) => { setGradientColor2(e.target.value); applyGradient(gradientColor1, e.target.value, gradientAngle); }} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+              <div className="space-y-3">
+                {/* Gradient type toggle */}
+                <div className="flex gap-1">
                   <button
-                    onClick={() => { setGradientColor2('rgba(0,0,0,0)'); applyGradient(gradientColor1, 'rgba(0,0,0,0)', gradientAngle); }}
-                    className="editor-btn text-[9px] px-2"
-                  >
-                    → Transparent
-                  </button>
+                    onClick={() => { setGradientType('linear'); applyGradient(gradientStops, gradientAngle, 'linear'); }}
+                    className={`flex-1 py-1 text-[10px] rounded-md transition-colors ${gradientType === 'linear' ? 'bg-primary/20 text-primary' : 'bg-editor-surface text-editor-text'}`}
+                  >Linear</button>
+                  <button
+                    onClick={() => { setGradientType('radial'); applyGradient(gradientStops, gradientAngle, 'radial'); }}
+                    className={`flex-1 py-1 text-[10px] rounded-md transition-colors ${gradientType === 'radial' ? 'bg-primary/20 text-primary' : 'bg-editor-surface text-editor-text'}`}
+                  >Radial</button>
                 </div>
-                <SliderInput label="Angle" value={gradientAngle} min={0} max={360} step={1} unit="°" onChange={(v) => { setGradientAngle(v); applyGradient(gradientColor1, gradientColor2, v); }} />
+
+                {/* Gradient preview bar */}
+                <div
+                  className="h-6 rounded-md border border-editor-border"
+                  style={{
+                    background: `linear-gradient(90deg, ${gradientStops.map(s => {
+                      const r = parseInt(s.color.slice(1, 3), 16);
+                      const g = parseInt(s.color.slice(3, 5), 16);
+                      const b = parseInt(s.color.slice(5, 7), 16);
+                      return `rgba(${r},${g},${b},${s.opacity}) ${s.offset * 100}%`;
+                    }).join(', ')})`,
+                  }}
+                />
+
+                {/* Color stops */}
+                <div className="space-y-2">
+                  {gradientStops.map((stop, i) => (
+                    <div key={i} className="flex items-center gap-1.5">
+                      <input type="color" value={stop.color} onChange={(e) => updateStop(i, { color: e.target.value })} className="w-6 h-6 rounded cursor-pointer border-0 bg-transparent flex-shrink-0" />
+                      <input type="range" min={0} max={100} value={Math.round(stop.offset * 100)} onChange={(e) => updateStop(i, { offset: Number(e.target.value) / 100 })} className="flex-1 accent-primary h-1" />
+                      <input type="number" min={0} max={100} value={Math.round(stop.opacity * 100)} onChange={(e) => updateStop(i, { opacity: Number(e.target.value) / 100 })} className="editor-input w-12 text-center text-[10px]" />
+                      {gradientStops.length > 2 && (
+                        <button onClick={() => removeStop(i)} className="editor-btn p-0.5"><Trash2 size={10} /></button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={addStop} className="editor-btn text-[10px] gap-1 w-full justify-center py-1">
+                  <Plus size={10} /> Add Stop
+                </button>
+
+                {gradientType === 'linear' && (
+                  <SliderInput label="Angle" value={gradientAngle} min={0} max={360} step={1} unit="°" onChange={(v) => { setGradientAngle(v); applyGradient(gradientStops, v, gradientType); }} />
+                )}
               </div>
             ) : (
               <div className="flex items-center gap-2">
