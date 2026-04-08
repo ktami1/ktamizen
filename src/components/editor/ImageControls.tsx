@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { fabric } from 'fabric';
 import { RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+import SliderInput from './SliderInput';
 
 type Adjustments = {
   brightness: number;
@@ -10,6 +11,7 @@ type Adjustments = {
   exposure: number;
   temperature: number;
   blur: number;
+  grain: number;
   opacity: number;
 };
 
@@ -20,17 +22,19 @@ const DEFAULT_ADJ: Adjustments = {
   exposure: 0,
   temperature: 0,
   blur: 0,
+  grain: 0,
   opacity: 100,
 };
 
-const SLIDERS: { key: keyof Adjustments; label: string; min: number; max: number; step: number }[] = [
+const SLIDERS: { key: keyof Adjustments; label: string; min: number; max: number; step: number; unit?: string }[] = [
   { key: 'brightness', label: 'Brightness', min: -100, max: 100, step: 1 },
   { key: 'contrast', label: 'Contrast', min: -100, max: 100, step: 1 },
   { key: 'saturation', label: 'Saturation', min: -100, max: 100, step: 1 },
   { key: 'exposure', label: 'Exposure', min: -100, max: 100, step: 1 },
   { key: 'temperature', label: 'Temperature', min: -100, max: 100, step: 1 },
   { key: 'blur', label: 'Blur', min: 0, max: 10, step: 0.1 },
-  { key: 'opacity', label: 'Opacity', min: 0, max: 100, step: 1 },
+  { key: 'grain', label: 'Grain', min: 0, max: 100, step: 1 },
+  { key: 'opacity', label: 'Opacity', min: 0, max: 100, step: 1, unit: '%' },
 ];
 
 export default function ImageControls() {
@@ -89,6 +93,9 @@ export default function ImageControls() {
     if (newAdj.blur > 0) {
       filters.push(new fabric.Image.filters.Blur({ blur: newAdj.blur / 10 }));
     }
+    if (newAdj.grain > 0) {
+      filters.push(new fabric.Image.filters.Noise({ noise: newAdj.grain * 2.5 }) as any);
+    }
 
     imgObj.filters = filters;
     imgObj.applyFilters();
@@ -105,15 +112,9 @@ export default function ImageControls() {
   const handleTransform = (action: 'rotate' | 'flipX' | 'flipY') => {
     if (!imgObj || !fabricCanvas) return;
     switch (action) {
-      case 'rotate':
-        imgObj.rotate((imgObj.angle || 0) + 90);
-        break;
-      case 'flipX':
-        imgObj.set({ flipX: !imgObj.flipX });
-        break;
-      case 'flipY':
-        imgObj.set({ flipY: !imgObj.flipY });
-        break;
+      case 'rotate': imgObj.rotate((imgObj.angle || 0) + 90); break;
+      case 'flipX': imgObj.set({ flipX: !imgObj.flipX }); break;
+      case 'flipY': imgObj.set({ flipY: !imgObj.flipY }); break;
     }
     fabricCanvas.renderAll();
     pushHistory();
@@ -148,22 +149,17 @@ export default function ImageControls() {
         <button onClick={resetAll} className="text-[10px] text-primary hover:underline">Reset</button>
       </div>
 
-      {SLIDERS.map(({ key, label, min, max, step }) => (
-        <div key={key}>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-[11px] text-editor-text">{label}</label>
-            <span className="text-[10px] text-muted-foreground">{adj[key]}</span>
-          </div>
-          <input
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={adj[key]}
-            onChange={(e) => handleChange(key, Number(e.target.value))}
-            className="w-full accent-primary h-1"
-          />
-        </div>
+      {SLIDERS.map(({ key, label, min, max, step, unit }) => (
+        <SliderInput
+          key={key}
+          label={label}
+          value={adj[key]}
+          min={min}
+          max={max}
+          step={step}
+          unit={unit}
+          onChange={(v) => handleChange(key, v)}
+        />
       ))}
     </div>
   );

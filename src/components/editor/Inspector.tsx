@@ -16,7 +16,7 @@ export default function Inspector() {
   const { inspectorTab, setInspectorTab } = useEditorStore();
 
   return (
-    <div className="w-72 bg-editor-panel border-l border-editor-border flex flex-col h-full overflow-hidden">
+    <div className="w-72 bg-editor-panel border-l border-editor-border flex-col h-full overflow-hidden hidden lg:flex">
       <div className="flex border-b border-editor-border">
         {tabs.map((tab) => (
           <button

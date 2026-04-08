@@ -54,6 +54,54 @@
     --sidebar-border: 240 4% 15%;
     --sidebar-ring: 210 100% 60%;
   }
+
+  .light {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 10%;
+
+    --primary: 210 100% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 92%;
+    --secondary-foreground: 240 6% 25%;
+
+    --muted: 240 5% 94%;
+    --muted-foreground: 240 4% 46%;
+
+    --accent: 280 60% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 6% 88%;
+    --input: 240 6% 88%;
+    --ring: 210 100% 50%;
+
+    --editor-bg: 240 5% 94%;
+    --editor-surface: 0 0% 100%;
+    --editor-panel: 0 0% 99%;
+    --editor-hover: 240 5% 93%;
+    --editor-active: 210 100% 50%;
+    --editor-border: 240 6% 88%;
+    --editor-text: 240 5% 40%;
+    --editor-text-bright: 240 10% 10%;
+
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 240 6% 25%;
+    --sidebar-primary: 210 100% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 94%;
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 240 6% 88%;
+    --sidebar-ring: 210 100% 50%;
+  }
 }
 
 @layer base {
@@ -87,7 +135,6 @@
   }
 }
 
-/* Canvas container */
 .canvas-container {
   @apply relative overflow-hidden;
 }
@@ -96,7 +143,6 @@
   @apply rounded-lg;
 }
 
-/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -108,11 +154,13 @@
   background: hsl(240 4% 20%);
   border-radius: 3px;
 }
+.light ::-webkit-scrollbar-thumb {
+  background: hsl(240 4% 80%);
+}
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(240 4% 30%);
 }
 
-/* Slide thumbnail active state */
 .slide-thumb-active {
   box-shadow: 0 0 0 2px hsl(210 100% 60%);
 }

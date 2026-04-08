@@ -13,13 +13,11 @@ export default function FabricCanvas() {
     slides,
     updateSlide,
     setSelectedObjectIds,
-    activeTool,
     zoom,
     setZoom,
     pushHistory,
   } = useEditorStore();
 
-  // Initialize canvas
   useEffect(() => {
     if (!canvasRef.current) return;
 
@@ -32,6 +30,19 @@ export default function FabricCanvas() {
       controlsAboveOverlay: true,
     });
 
+    // Better selection styling
+    fabric.Object.prototype.set({
+      transparentCorners: false,
+      cornerColor: '#3b82f6',
+      cornerStrokeColor: '#3b82f6',
+      borderColor: '#3b82f6',
+      cornerSize: 8,
+      cornerStyle: 'circle',
+      borderDashArray: undefined,
+      padding: 4,
+      rotatingPointOffset: 30,
+    });
+
     canvas.renderAll();
     setFabricCanvas(canvas);
 
@@ -41,7 +52,6 @@ export default function FabricCanvas() {
     };
   }, []);
 
-  // Update canvas size when format changes
   useEffect(() => {
     if (!fabricCanvas) return;
     fabricCanvas.setWidth(format.width);
@@ -50,7 +60,6 @@ export default function FabricCanvas() {
     fitCanvasToContainer();
   }, [format, fabricCanvas]);
 
-  // Fit canvas in container
   const fitCanvasToContainer = useCallback(() => {
     if (!containerRef.current || !fabricCanvas) return;
     const container = containerRef.current;
@@ -68,14 +77,12 @@ export default function FabricCanvas() {
     return () => window.removeEventListener('resize', handleResize);
   }, [fitCanvasToContainer]);
 
-  // Save current slide
   const saveCurrentSlide = useCallback(() => {
     if (!fabricCanvas) return;
     const json = JSON.stringify(fabricCanvas.toJSON(['id', 'name', 'selectable', 'lockMovementX', 'lockMovementY', 'lockRotation', 'lockScalingX', 'lockScalingY', 'visible', 'hasControls']));
     updateSlide(activeSlideIndex, { objects: json });
   }, [fabricCanvas, activeSlideIndex, updateSlide]);
 
-  // Load slide data when switching slides
   useEffect(() => {
     if (!fabricCanvas) return;
     const slide = slides[activeSlideIndex];
@@ -93,7 +100,6 @@ export default function FabricCanvas() {
     }
   }, [activeSlideIndex, fabricCanvas]);
 
-  // Event handlers
   useEffect(() => {
     if (!fabricCanvas) return;
 
@@ -131,24 +137,17 @@ export default function FabricCanvas() {
     };
   }, [fabricCanvas, saveCurrentSlide, pushHistory, setSelectedObjectIds]);
 
-  // Handle tool changes
   useEffect(() => {
     if (!fabricCanvas) return;
-    fabricCanvas.isDrawingMode = activeTool === 'draw';
-    fabricCanvas.selection = activeTool === 'select';
-    
-    if (activeTool === 'draw') {
-      fabricCanvas.freeDrawingBrush.width = 3;
-      fabricCanvas.freeDrawingBrush.color = '#000000';
-    }
-  }, [activeTool, fabricCanvas]);
+    fabricCanvas.isDrawingMode = false;
+    fabricCanvas.selection = true;
+  }, [fabricCanvas]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!fabricCanvas) return;
       const target = e.target as HTMLElement;
-      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return;
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const activeObjects = fabricCanvas.getActiveObjects();
