@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { fabric } from 'fabric';
-import { RotateCw, FlipHorizontal, FlipVertical } from 'lucide-react';
+import { RotateCw, FlipHorizontal, FlipVertical, Lock, Unlock } from 'lucide-react';
 import SliderInput from './SliderInput';
 
 type Adjustments = {
@@ -41,6 +41,10 @@ export default function ImageControls() {
   const { fabricCanvas, pushHistory } = useEditorStore();
   const [imgObj, setImgObj] = useState<fabric.Image | null>(null);
   const [adj, setAdj] = useState<Adjustments>({ ...DEFAULT_ADJ });
+  const [lockAspect, setLockAspect] = useState(true);
+  const [imgScale, setImgScale] = useState(100);
+  const [imgWidth, setImgWidth] = useState(0);
+  const [imgHeight, setImgHeight] = useState(0);
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -48,8 +52,14 @@ export default function ImageControls() {
     const onSelect = () => {
       const obj = fabricCanvas.getActiveObject();
       if (obj && obj.type === 'image') {
-        setImgObj(obj as fabric.Image);
+        const img = obj as fabric.Image;
+        setImgObj(img);
         setAdj({ ...DEFAULT_ADJ });
+        const locked = (img as any).lockUniScaling !== false;
+        setLockAspect(locked);
+        setImgScale(Math.round((img.scaleX || 1) * 100));
+        setImgWidth(Math.round((img.width || 0) * (img.scaleX || 1)));
+        setImgHeight(Math.round((img.height || 0) * (img.scaleY || 1)));
       } else {
         setImgObj(null);
       }
@@ -58,12 +68,16 @@ export default function ImageControls() {
     fabricCanvas.on('selection:created', onSelect);
     fabricCanvas.on('selection:updated', onSelect);
     fabricCanvas.on('selection:cleared', () => setImgObj(null));
+    fabricCanvas.on('object:modified', onSelect);
+    fabricCanvas.on('object:scaling', onSelect);
     onSelect();
 
     return () => {
       fabricCanvas.off('selection:created', onSelect);
       fabricCanvas.off('selection:updated', onSelect);
       fabricCanvas.off('selection:cleared');
+      fabricCanvas.off('object:modified', onSelect);
+      fabricCanvas.off('object:scaling', onSelect);
     };
   }, [fabricCanvas]);
 
@@ -120,6 +134,50 @@ export default function ImageControls() {
     pushHistory();
   };
 
+  const handleLockToggle = () => {
+    if (!imgObj || !fabricCanvas) return;
+    const next = !lockAspect;
+    setLockAspect(next);
+    imgObj.set({ lockUniScaling: next } as any);
+    fabricCanvas.renderAll();
+  };
+
+  const handleScaleChange = (val: number) => {
+    if (!imgObj || !fabricCanvas) return;
+    setImgScale(val);
+    const s = val / 100;
+    imgObj.set({ scaleX: s, scaleY: s });
+    setImgWidth(Math.round((imgObj.width || 0) * s));
+    setImgHeight(Math.round((imgObj.height || 0) * s));
+    fabricCanvas.renderAll();
+  };
+
+  const handleWidthChange = (val: number) => {
+    if (!imgObj || !fabricCanvas) return;
+    const s = val / (imgObj.width || 1);
+    imgObj.set({ scaleX: s });
+    if (lockAspect) {
+      imgObj.set({ scaleY: s });
+      setImgHeight(Math.round((imgObj.height || 0) * s));
+    }
+    setImgWidth(val);
+    setImgScale(Math.round(s * 100));
+    fabricCanvas.renderAll();
+  };
+
+  const handleHeightChange = (val: number) => {
+    if (!imgObj || !fabricCanvas) return;
+    const s = val / (imgObj.height || 1);
+    imgObj.set({ scaleY: s });
+    if (lockAspect) {
+      imgObj.set({ scaleX: s });
+      setImgWidth(Math.round((imgObj.width || 0) * s));
+    }
+    setImgHeight(val);
+    setImgScale(Math.round(s * 100));
+    fabricCanvas.renderAll();
+  };
+
   const resetAll = () => {
     setAdj({ ...DEFAULT_ADJ });
     applyFilters({ ...DEFAULT_ADJ });
@@ -135,6 +193,7 @@ export default function ImageControls() {
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Transform */}
       <div className="flex items-center justify-between">
         <span className="editor-label">Transform</span>
         <div className="flex gap-1">
@@ -144,6 +203,32 @@ export default function ImageControls() {
         </div>
       </div>
 
+      {/* Aspect ratio lock */}
+      <div className="flex items-center justify-between">
+        <span className="editor-label">Lock Aspect Ratio</span>
+        <button onClick={handleLockToggle} className={`editor-btn ${lockAspect ? 'editor-btn-active' : ''}`}>
+          {lockAspect ? <Lock size={14} /> : <Unlock size={14} />}
+        </button>
+      </div>
+
+      {/* Scale */}
+      <SliderInput label="Scale" value={imgScale} min={5} max={300} step={1} unit="%" onChange={handleScaleChange} />
+
+      {/* Width / Height */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="editor-label mb-1 block">Width</label>
+          <input type="number" value={imgWidth} onChange={(e) => handleWidthChange(Number(e.target.value))} className="editor-input w-full text-center" />
+        </div>
+        <div>
+          <label className="editor-label mb-1 block">Height</label>
+          <input type="number" value={imgHeight} onChange={(e) => handleHeightChange(Number(e.target.value))} className="editor-input w-full text-center" />
+        </div>
+      </div>
+
+      <div className="w-full h-px bg-editor-border" />
+
+      {/* Adjustments */}
       <div className="flex items-center justify-between">
         <span className="editor-label">Adjustments</span>
         <button onClick={resetAll} className="text-[10px] text-primary hover:underline">Reset</button>

@@ -109,6 +109,7 @@ export default function Toolbar() {
           top: format.height / 2 - ((img.height || 0) * scale) / 2,
           scaleX: scale,
           scaleY: scale,
+          lockUniScaling: true,
         });
         (img as any).id = generateId();
         (img as any).name = file.name.split('.')[0] || 'Image';
@@ -123,8 +124,8 @@ export default function Toolbar() {
   };
 
   return (
-    <div className="h-12 bg-editor-panel border-b border-editor-border flex items-center px-3 gap-1 relative z-20">
-      <div className="flex items-center gap-1 mr-3">
+    <div className="h-11 bg-editor-panel border-b border-editor-border flex items-center px-2 sm:px-3 gap-0.5 relative z-20">
+      <div className="flex items-center gap-0.5 mr-2">
         <button onClick={undo} disabled={!canUndo()} className="editor-btn disabled:opacity-30" title="Undo (Ctrl+Z)">
           <Undo2 size={16} />
         </button>
@@ -133,18 +134,18 @@ export default function Toolbar() {
         </button>
       </div>
 
-      <div className="w-px h-6 bg-editor-border mx-1" />
+      <div className="w-px h-6 bg-editor-border mx-0.5" />
 
       <div className="flex items-center gap-0.5 relative">
         {tools.map((tool) => (
           <button
             key={tool.id}
             onClick={() => handleToolClick(tool.id)}
-            className={`editor-btn px-2.5 py-1.5 text-xs gap-1.5 ${activeTool === tool.id ? 'editor-btn-active' : ''}`}
+            className={`editor-btn px-2 py-1.5 text-xs gap-1 ${activeTool === tool.id ? 'editor-btn-active' : ''}`}
             title={tool.label}
           >
             <tool.icon size={16} />
-            <span className="hidden sm:inline">{tool.label}</span>
+            <span className="hidden sm:inline text-[11px]">{tool.label}</span>
           </button>
         ))}
 

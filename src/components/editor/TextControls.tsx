@@ -8,8 +8,10 @@ import TextPresets from './TextPresets';
 
 const FONT_FAMILIES = [
   'Inter Tight', 'Space Grotesk', 'Playfair Display', 'Instrument Serif',
+  'Bebas Neue', 'Montserrat', 'Oswald', 'Raleway', 'Poppins', 'Lato',
+  'Roboto', 'Open Sans', 'Nunito', 'Archivo Black', 'Anton',
   'Arial', 'Georgia', 'Courier New', 'Times New Roman', 'Verdana',
-  'Trebuchet MS', 'Impact', 'Comic Sans MS',
+  'Trebuchet MS', 'Impact',
 ];
 
 const FONT_WEIGHTS = [
@@ -24,7 +26,7 @@ const FONT_WEIGHTS = [
 ];
 
 export default function TextControls() {
-  const { fabricCanvas, pushHistory, addRecentColor } = useEditorStore();
+  const { fabricCanvas, pushHistory, addRecentColor, addRecentFont, recentFonts, textInputValue, setTextInputValue } = useEditorStore();
   const [textObj, setTextObj] = useState<fabric.IText | null>(null);
   const [fontFamily, setFontFamily] = useState('Inter Tight');
   const [fontSize, setFontSize] = useState(40);
@@ -58,6 +60,7 @@ export default function TextControls() {
         setStrokeWidth(sw);
         setStrokeEnabled(sw > 0);
         setStrokeColor(t.stroke || '#000000');
+        setTextInputValue(t.text || '');
       } else {
         setTextObj(null);
       }
@@ -66,12 +69,14 @@ export default function TextControls() {
     fabricCanvas.on('selection:created', syncFromObj);
     fabricCanvas.on('selection:updated', syncFromObj);
     fabricCanvas.on('selection:cleared', () => setTextObj(null));
+    fabricCanvas.on('text:changed', syncFromObj);
     syncFromObj();
 
     return () => {
       fabricCanvas.off('selection:created', syncFromObj);
       fabricCanvas.off('selection:updated', syncFromObj);
       fabricCanvas.off('selection:cleared');
+      fabricCanvas.off('text:changed', syncFromObj);
     };
   }, [fabricCanvas]);
 
@@ -88,6 +93,27 @@ export default function TextControls() {
     addRecentColor(color);
   };
 
+  const handleFontChange = (font: string) => {
+    setFontFamily(font);
+    apply({ fontFamily: font });
+    addRecentFont(font);
+    // Dynamic load from Google Fonts
+    const link = document.createElement('link');
+    link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@100;300;400;500;600;700;800;900&display=swap`;
+    link.rel = 'stylesheet';
+    if (!document.querySelector(`link[href="${link.href}"]`)) {
+      document.head.appendChild(link);
+    }
+  };
+
+  const handleTextInput = (val: string) => {
+    setTextInputValue(val);
+    if (textObj && fabricCanvas) {
+      textObj.set({ text: val });
+      fabricCanvas.renderAll();
+    }
+  };
+
   if (!textObj) {
     return (
       <div className="space-y-4 animate-fade-in">
@@ -99,22 +125,45 @@ export default function TextControls() {
     );
   }
 
+  // Build font list with recent fonts first
+  const allFonts = [...new Set([...recentFonts, ...FONT_FAMILIES])];
+
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-3 animate-fade-in">
       <TextPresets />
 
       <div className="w-full h-px bg-editor-border" />
+
+      {/* Text Input Panel */}
+      <div>
+        <label className="editor-label mb-1.5 block">Text Content</label>
+        <textarea
+          value={textInputValue}
+          onChange={(e) => handleTextInput(e.target.value)}
+          className="editor-input w-full min-h-[60px] resize-y text-xs"
+          placeholder="Type your text here..."
+        />
+      </div>
 
       <div>
         <label className="editor-label mb-1.5 block">Font Family</label>
         <select
           value={fontFamily}
-          onChange={(e) => { setFontFamily(e.target.value); apply({ fontFamily: e.target.value }); }}
+          onChange={(e) => handleFontChange(e.target.value)}
           className="editor-input w-full"
         >
-          {FONT_FAMILIES.map((f) => (
-            <option key={f} value={f} style={{ fontFamily: f }}>{f}</option>
-          ))}
+          {recentFonts.length > 0 && (
+            <optgroup label="Recent">
+              {recentFonts.map((f) => (
+                <option key={`recent-${f}`} value={f}>{f}</option>
+              ))}
+            </optgroup>
+          )}
+          <optgroup label="All Fonts">
+            {FONT_FAMILIES.map((f) => (
+              <option key={f} value={f}>{f}</option>
+            ))}
+          </optgroup>
         </select>
       </div>
 
@@ -129,10 +178,10 @@ export default function TextControls() {
 
       <div>
         <label className="editor-label mb-1.5 block">Style & Alignment</label>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           <button onClick={() => { const v = fontWeight === '700' ? '400' : '700'; setFontWeight(v); apply({ fontWeight: v }); }} className={`editor-btn ${fontWeight === '700' ? 'editor-btn-active' : ''}`}><Bold size={14} /></button>
           <button onClick={() => { const v = fontStyle === 'italic' ? '' : 'italic'; setFontStyle(v as any); apply({ fontStyle: v || 'normal' }); }} className={`editor-btn ${fontStyle === 'italic' ? 'editor-btn-active' : ''}`}><Italic size={14} /></button>
-          <div className="w-px h-6 bg-editor-border mx-1 self-center" />
+          <div className="w-px h-6 bg-editor-border mx-0.5 self-center" />
           <button onClick={() => { setTextAlign('left'); apply({ textAlign: 'left' }); }} className={`editor-btn ${textAlign === 'left' ? 'editor-btn-active' : ''}`}><AlignLeft size={14} /></button>
           <button onClick={() => { setTextAlign('center'); apply({ textAlign: 'center' }); }} className={`editor-btn ${textAlign === 'center' ? 'editor-btn-active' : ''}`}><AlignCenter size={14} /></button>
           <button onClick={() => { setTextAlign('right'); apply({ textAlign: 'right' }); }} className={`editor-btn ${textAlign === 'right' ? 'editor-btn-active' : ''}`}><AlignRight size={14} /></button>

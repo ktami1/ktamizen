@@ -43,6 +43,12 @@ export type TextPreset = {
   strokeWidth: number;
 };
 
+export type GradientStop = {
+  offset: number;
+  color: string;
+  opacity: number;
+};
+
 const DEFAULT_TEXT_PRESETS: TextPreset[] = [
   { id: 'p1', name: 'Bold Title', category: 'title', fontFamily: 'Space Grotesk', fontSize: 72, fontWeight: '700', fill: '#ffffff', charSpacing: -20, lineHeight: 1.1, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
   { id: 'p2', name: 'Elegant Heading', category: 'title', fontFamily: 'Playfair Display', fontSize: 56, fontWeight: '600', fill: '#ffffff', charSpacing: 0, lineHeight: 1.2, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
@@ -94,22 +100,25 @@ interface EditorState {
   transparentBg: boolean;
   setTransparentBg: (val: boolean) => void;
 
-  // Recent colors
   recentColors: string[];
   addRecentColor: (color: string) => void;
 
-  // Text presets
+  recentFonts: string[];
+  addRecentFont: (font: string) => void;
+
   textPresets: TextPreset[];
   addTextPreset: (preset: TextPreset) => void;
   removeTextPreset: (id: string) => void;
 
-  // Theme
   theme: 'dark' | 'light';
   setTheme: (theme: 'dark' | 'light') => void;
 
-  // Mobile
-  mobilePanel: 'none' | 'layers' | 'inspector';
-  setMobilePanel: (panel: 'none' | 'layers' | 'inspector') => void;
+  mobilePanel: 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust';
+  setMobilePanel: (panel: 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust') => void;
+
+  // Text input sync
+  textInputValue: string;
+  setTextInputValue: (val: string) => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 10);
@@ -183,30 +192,47 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     };
     const newHistory = history.slice(0, historyIndex + 1);
     newHistory.push(entry);
-    if (newHistory.length > 50) newHistory.shift();
+    if (newHistory.length > 80) newHistory.shift();
     set({ history: newHistory, historyIndex: newHistory.length - 1 });
   },
 
   undo: () => {
-    const { historyIndex, history } = get();
+    const { historyIndex, history, fabricCanvas } = get();
     if (historyIndex <= 0) return;
     const entry = history[historyIndex - 1];
     set({
-      slides: entry.slides,
+      slides: entry.slides.map(s => ({ ...s })),
       activeSlideIndex: entry.activeSlideIndex,
       historyIndex: historyIndex - 1,
     });
+    // Reload canvas from the restored slide
+    if (fabricCanvas) {
+      try {
+        const data = JSON.parse(entry.slides[entry.activeSlideIndex].objects);
+        fabricCanvas.loadFromJSON(data, () => {
+          fabricCanvas.renderAll();
+        });
+      } catch { /* ignore */ }
+    }
   },
 
   redo: () => {
-    const { historyIndex, history } = get();
+    const { historyIndex, history, fabricCanvas } = get();
     if (historyIndex >= history.length - 1) return;
     const entry = history[historyIndex + 1];
     set({
-      slides: entry.slides,
+      slides: entry.slides.map(s => ({ ...s })),
       activeSlideIndex: entry.activeSlideIndex,
       historyIndex: historyIndex + 1,
     });
+    if (fabricCanvas) {
+      try {
+        const data = JSON.parse(entry.slides[entry.activeSlideIndex].objects);
+        fabricCanvas.loadFromJSON(data, () => {
+          fabricCanvas.renderAll();
+        });
+      } catch { /* ignore */ }
+    }
   },
 
   canUndo: () => get().historyIndex > 0,
@@ -231,6 +257,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ recentColors: colors.slice(0, 16) });
   },
 
+  recentFonts: [],
+  addRecentFont: (font) => {
+    const fonts = get().recentFonts.filter(f => f !== font);
+    fonts.unshift(font);
+    set({ recentFonts: fonts.slice(0, 8) });
+  },
+
   textPresets: [...DEFAULT_TEXT_PRESETS],
   addTextPreset: (preset) => set({ textPresets: [...get().textPresets, preset] }),
   removeTextPreset: (id) => set({ textPresets: get().textPresets.filter(p => p.id !== id) }),
@@ -250,4 +283,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   mobilePanel: 'none',
   setMobilePanel: (panel) => set({ mobilePanel: panel }),
+
+  textInputValue: '',
+  setTextInputValue: (val) => set({ textInputValue: val }),
 }));
