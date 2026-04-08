@@ -1,10 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { fabric } from 'fabric';
-import {
-  Bold, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify,
-  CaseSensitive, ChevronsUp, ChevronsDown,
-} from 'lucide-react';
+import { Bold, Italic, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import SliderInput from './SliderInput';
+import RecentColors from './RecentColors';
+import TextPresets from './TextPresets';
 
 const FONT_FAMILIES = [
   'Inter Tight', 'Space Grotesk', 'Playfair Display', 'Instrument Serif',
@@ -24,7 +24,7 @@ const FONT_WEIGHTS = [
 ];
 
 export default function TextControls() {
-  const { fabricCanvas, pushHistory } = useEditorStore();
+  const { fabricCanvas, pushHistory, addRecentColor } = useEditorStore();
   const [textObj, setTextObj] = useState<fabric.IText | null>(null);
   const [fontFamily, setFontFamily] = useState('Inter Tight');
   const [fontSize, setFontSize] = useState(40);
@@ -34,8 +34,7 @@ export default function TextControls() {
   const [fill, setFill] = useState('#000000');
   const [charSpacing, setCharSpacing] = useState(0);
   const [lineHeight, setLineHeight] = useState(1.2);
-  const [textTransform, setTextTransform] = useState<'none' | 'uppercase' | 'lowercase' | 'capitalize'>('none');
-  const [shadow, setShadow] = useState({ color: '#000000', blur: 0, offsetX: 0, offsetY: 2, opacity: 50 });
+  const [strokeEnabled, setStrokeEnabled] = useState(false);
   const [strokeWidth, setStrokeWidth] = useState(0);
   const [strokeColor, setStrokeColor] = useState('#000000');
 
@@ -55,12 +54,10 @@ export default function TextControls() {
         setFill((t.fill as string) || '#000000');
         setCharSpacing(t.charSpacing || 0);
         setLineHeight(t.lineHeight || 1.2);
-        setStrokeWidth(t.strokeWidth || 0);
+        const sw = t.strokeWidth || 0;
+        setStrokeWidth(sw);
+        setStrokeEnabled(sw > 0);
         setStrokeColor(t.stroke || '#000000');
-        if (t.shadow) {
-          const s = t.shadow as fabric.Shadow;
-          setShadow({ color: s.color || '#000000', blur: s.blur || 0, offsetX: s.offsetX || 0, offsetY: s.offsetY || 2, opacity: 50 });
-        }
       } else {
         setTextObj(null);
       }
@@ -85,16 +82,29 @@ export default function TextControls() {
     pushHistory();
   }, [textObj, fabricCanvas, pushHistory]);
 
+  const handleColorChange = (color: string) => {
+    setFill(color);
+    apply({ fill: color });
+    addRecentColor(color);
+  };
+
   if (!textObj) {
     return (
-      <div className="text-center text-muted-foreground text-xs py-8 animate-fade-in">
-        Select a text element to edit its properties
+      <div className="space-y-4 animate-fade-in">
+        <div className="text-center text-muted-foreground text-xs py-4">
+          Select a text element to edit
+        </div>
+        <TextPresets />
       </div>
     );
   }
 
   return (
     <div className="space-y-4 animate-fade-in">
+      <TextPresets />
+
+      <div className="w-full h-px bg-editor-border" />
+
       <div>
         <label className="editor-label mb-1.5 block">Font Family</label>
         <select
@@ -108,21 +118,17 @@ export default function TextControls() {
         </select>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="editor-label mb-1.5 block">Size</label>
-          <input type="number" value={fontSize} min={8} max={400} onChange={(e) => { const v = Number(e.target.value); setFontSize(v); apply({ fontSize: v }); }} className="editor-input w-full" />
-        </div>
-        <div>
-          <label className="editor-label mb-1.5 block">Weight</label>
-          <select value={fontWeight} onChange={(e) => { setFontWeight(e.target.value); apply({ fontWeight: e.target.value }); }} className="editor-input w-full">
-            {FONT_WEIGHTS.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
-          </select>
-        </div>
+      <SliderInput label="Font Size" value={fontSize} min={8} max={400} step={1} unit="px" onChange={(v) => { setFontSize(v); apply({ fontSize: v }); }} />
+
+      <div>
+        <label className="editor-label mb-1.5 block">Weight</label>
+        <select value={fontWeight} onChange={(e) => { setFontWeight(e.target.value); apply({ fontWeight: e.target.value }); }} className="editor-input w-full">
+          {FONT_WEIGHTS.map((w) => <option key={w.value} value={w.value}>{w.label}</option>)}
+        </select>
       </div>
 
       <div>
-        <label className="editor-label mb-1.5 block">Style</label>
+        <label className="editor-label mb-1.5 block">Style & Alignment</label>
         <div className="flex gap-1">
           <button onClick={() => { const v = fontWeight === '700' ? '400' : '700'; setFontWeight(v); apply({ fontWeight: v }); }} className={`editor-btn ${fontWeight === '700' ? 'editor-btn-active' : ''}`}><Bold size={14} /></button>
           <button onClick={() => { const v = fontStyle === 'italic' ? '' : 'italic'; setFontStyle(v as any); apply({ fontStyle: v || 'normal' }); }} className={`editor-btn ${fontStyle === 'italic' ? 'editor-btn-active' : ''}`}><Italic size={14} /></button>
@@ -135,84 +141,47 @@ export default function TextControls() {
       </div>
 
       <div>
-        <label className="editor-label mb-1.5 block">Text Transform</label>
-        <div className="flex gap-1">
-          {(['none', 'uppercase', 'lowercase', 'capitalize'] as const).map((tt) => (
-            <button
-              key={tt}
-              onClick={() => {
-                setTextTransform(tt);
-                if (!textObj) return;
-                let text = textObj.text || '';
-                switch (tt) {
-                  case 'uppercase': text = text.toUpperCase(); break;
-                  case 'lowercase': text = text.toLowerCase(); break;
-                  case 'capitalize': text = text.replace(/\b\w/g, (c) => c.toUpperCase()); break;
-                  default: break;
-                }
-                apply({ text });
-              }}
-              className={`editor-btn text-[10px] px-2 ${textTransform === tt ? 'editor-btn-active' : ''}`}
-            >
-              {tt === 'none' ? 'Aa' : tt === 'uppercase' ? 'AA' : tt === 'lowercase' ? 'aa' : 'Aa'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
         <label className="editor-label mb-1.5 block">Color</label>
         <div className="flex items-center gap-2">
-          <input type="color" value={fill} onChange={(e) => { setFill(e.target.value); apply({ fill: e.target.value }); }} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-          <input type="text" value={fill} onChange={(e) => { setFill(e.target.value); apply({ fill: e.target.value }); }} className="editor-input flex-1" />
+          <input type="color" value={fill} onChange={(e) => handleColorChange(e.target.value)} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+          <input type="text" value={fill} onChange={(e) => handleColorChange(e.target.value)} className="editor-input flex-1" />
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="editor-label mb-1.5 block">Letter Spacing</label>
-          <input type="number" value={charSpacing} min={-200} max={1000} step={10} onChange={(e) => { const v = Number(e.target.value); setCharSpacing(v); apply({ charSpacing: v }); }} className="editor-input w-full" />
-        </div>
-        <div>
-          <label className="editor-label mb-1.5 block">Line Height</label>
-          <input type="number" value={lineHeight} min={0.5} max={4} step={0.1} onChange={(e) => { const v = Number(e.target.value); setLineHeight(v); apply({ lineHeight: v }); }} className="editor-input w-full" />
-        </div>
-      </div>
+      <RecentColors onSelect={handleColorChange} />
+
+      <SliderInput label="Letter Spacing" value={charSpacing} min={-200} max={1000} step={10} onChange={(v) => { setCharSpacing(v); apply({ charSpacing: v }); }} />
+      <SliderInput label="Line Height" value={lineHeight} min={0.5} max={4} step={0.1} onChange={(v) => { setLineHeight(v); apply({ lineHeight: v }); }} />
 
       <div>
-        <label className="editor-label mb-1.5 block">Text Stroke</label>
-        <div className="flex items-center gap-2">
-          <input type="color" value={strokeColor} onChange={(e) => { setStrokeColor(e.target.value); apply({ stroke: e.target.value, strokeWidth: strokeWidth || 1 }); }} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
-          <input type="number" value={strokeWidth} min={0} max={20} onChange={(e) => { const v = Number(e.target.value); setStrokeWidth(v); apply({ strokeWidth: v, stroke: strokeColor }); }} className="editor-input w-16" />
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="editor-label">Stroke</label>
+          <button
+            onClick={() => {
+              const next = !strokeEnabled;
+              setStrokeEnabled(next);
+              if (!next) {
+                setStrokeWidth(0);
+                apply({ strokeWidth: 0, stroke: '' });
+              } else {
+                setStrokeWidth(1);
+                apply({ strokeWidth: 1, stroke: strokeColor });
+              }
+            }}
+            className={`w-8 h-4 rounded-full transition-colors relative ${strokeEnabled ? 'bg-primary' : 'bg-editor-surface'}`}
+          >
+            <div className={`absolute top-0.5 w-3 h-3 rounded-full bg-foreground transition-transform ${strokeEnabled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+          </button>
         </div>
-      </div>
-
-      <div>
-        <label className="editor-label mb-1.5 block">Shadow</label>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-muted-foreground w-10">Blur</label>
-            <input type="range" min={0} max={50} value={shadow.blur} onChange={(e) => {
-              const s = { ...shadow, blur: Number(e.target.value) };
-              setShadow(s);
-              apply({ shadow: new fabric.Shadow({ color: s.color, blur: s.blur, offsetX: s.offsetX, offsetY: s.offsetY }) });
-            }} className="flex-1 accent-primary" />
-            <span className="text-[10px] text-muted-foreground w-6 text-right">{shadow.blur}</span>
+        {strokeEnabled && (
+          <div className="space-y-2 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <input type="color" value={strokeColor} onChange={(e) => { setStrokeColor(e.target.value); apply({ stroke: e.target.value }); }} className="w-8 h-8 rounded cursor-pointer border-0 bg-transparent" />
+              <input type="text" value={strokeColor} onChange={(e) => { setStrokeColor(e.target.value); apply({ stroke: e.target.value }); }} className="editor-input flex-1" />
+            </div>
+            <SliderInput label="Stroke Width" value={strokeWidth} min={0} max={20} step={0.5} onChange={(v) => { setStrokeWidth(v); apply({ strokeWidth: v, stroke: strokeColor }); }} />
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-[10px] text-muted-foreground w-10">X / Y</label>
-            <input type="number" value={shadow.offsetX} onChange={(e) => {
-              const s = { ...shadow, offsetX: Number(e.target.value) };
-              setShadow(s);
-              apply({ shadow: new fabric.Shadow({ color: s.color, blur: s.blur, offsetX: s.offsetX, offsetY: s.offsetY }) });
-            }} className="editor-input w-14" />
-            <input type="number" value={shadow.offsetY} onChange={(e) => {
-              const s = { ...shadow, offsetY: Number(e.target.value) };
-              setShadow(s);
-              apply({ shadow: new fabric.Shadow({ color: s.color, blur: s.blur, offsetX: s.offsetX, offsetY: s.offsetY }) });
-            }} className="editor-input w-14" />
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

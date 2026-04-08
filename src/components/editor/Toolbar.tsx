@@ -1,6 +1,6 @@
 import { 
-  MousePointer2, Type, Square, Image, Pencil, 
-  Undo2, Redo2, ZoomIn, ZoomOut,
+  MousePointer2, Type, Square, Image,
+  Undo2, Redo2,
   Circle, Triangle, Minus
 } from 'lucide-react';
 import { useEditorStore, EditorTool } from '@/stores/editorStore';
@@ -12,7 +12,6 @@ const tools: { id: EditorTool; icon: React.ElementType; label: string }[] = [
   { id: 'text', icon: Type, label: 'Text' },
   { id: 'shape', icon: Square, label: 'Shape' },
   { id: 'image', icon: Image, label: 'Image' },
-  { id: 'draw', icon: Pencil, label: 'Draw' },
 ];
 
 const shapes = [

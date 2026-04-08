@@ -17,7 +17,7 @@ export const FORMAT_PRESETS: FormatPreset[] = [
 
 export type SlideData = {
   id: string;
-  objects: string; // serialized fabric JSON
+  objects: string;
   thumbnail?: string;
 };
 
@@ -26,18 +26,37 @@ export type HistoryEntry = {
   activeSlideIndex: number;
 };
 
-export type EditorTool = 'select' | 'text' | 'shape' | 'image' | 'draw';
+export type EditorTool = 'select' | 'text' | 'shape' | 'image';
+
+export type TextPreset = {
+  id: string;
+  name: string;
+  category: 'title' | 'subtitle' | 'caption' | 'custom';
+  fontFamily: string;
+  fontSize: number;
+  fontWeight: string;
+  fill: string;
+  charSpacing: number;
+  lineHeight: number;
+  strokeEnabled: boolean;
+  strokeColor: string;
+  strokeWidth: number;
+};
+
+const DEFAULT_TEXT_PRESETS: TextPreset[] = [
+  { id: 'p1', name: 'Bold Title', category: 'title', fontFamily: 'Space Grotesk', fontSize: 72, fontWeight: '700', fill: '#ffffff', charSpacing: -20, lineHeight: 1.1, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
+  { id: 'p2', name: 'Elegant Heading', category: 'title', fontFamily: 'Playfair Display', fontSize: 56, fontWeight: '600', fill: '#ffffff', charSpacing: 0, lineHeight: 1.2, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
+  { id: 'p3', name: 'Subtitle', category: 'subtitle', fontFamily: 'Inter Tight', fontSize: 28, fontWeight: '500', fill: '#cccccc', charSpacing: 20, lineHeight: 1.4, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
+  { id: 'p4', name: 'Caption', category: 'caption', fontFamily: 'Inter Tight', fontSize: 16, fontWeight: '400', fill: '#999999', charSpacing: 40, lineHeight: 1.5, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
+];
 
 interface EditorState {
-  // Project
   projectName: string;
   setProjectName: (name: string) => void;
 
-  // Format
   format: FormatPreset;
   setFormat: (format: FormatPreset) => void;
 
-  // Slides
   slides: SlideData[];
   activeSlideIndex: number;
   setActiveSlideIndex: (index: number) => void;
@@ -47,19 +66,15 @@ interface EditorState {
   updateSlide: (index: number, data: Partial<SlideData>) => void;
   reorderSlides: (from: number, to: number) => void;
 
-  // Tool
   activeTool: EditorTool;
   setActiveTool: (tool: EditorTool) => void;
 
-  // Selection
   selectedObjectIds: string[];
   setSelectedObjectIds: (ids: string[]) => void;
 
-  // Inspector
   inspectorTab: 'design' | 'text' | 'image' | 'export';
   setInspectorTab: (tab: 'design' | 'text' | 'image' | 'export') => void;
 
-  // History
   history: HistoryEntry[];
   historyIndex: number;
   pushHistory: () => void;
@@ -68,19 +83,33 @@ interface EditorState {
   canUndo: () => boolean;
   canRedo: () => boolean;
 
-  // Canvas ref
   fabricCanvas: any;
   setFabricCanvas: (canvas: any) => void;
 
-  // Zoom
   zoom: number;
   setZoom: (zoom: number) => void;
 
-  // Export
   exportScale: number;
   setExportScale: (scale: number) => void;
   transparentBg: boolean;
   setTransparentBg: (val: boolean) => void;
+
+  // Recent colors
+  recentColors: string[];
+  addRecentColor: (color: string) => void;
+
+  // Text presets
+  textPresets: TextPreset[];
+  addTextPreset: (preset: TextPreset) => void;
+  removeTextPreset: (id: string) => void;
+
+  // Theme
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
+
+  // Mobile
+  mobilePanel: 'none' | 'layers' | 'inspector';
+  setMobilePanel: (panel: 'none' | 'layers' | 'inspector') => void;
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 10);
@@ -194,4 +223,31 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   transparentBg: false,
   setTransparentBg: (val) => set({ transparentBg: val }),
+
+  recentColors: [],
+  addRecentColor: (color) => {
+    const colors = get().recentColors.filter(c => c !== color);
+    colors.unshift(color);
+    set({ recentColors: colors.slice(0, 16) });
+  },
+
+  textPresets: [...DEFAULT_TEXT_PRESETS],
+  addTextPreset: (preset) => set({ textPresets: [...get().textPresets, preset] }),
+  removeTextPreset: (id) => set({ textPresets: get().textPresets.filter(p => p.id !== id) }),
+
+  theme: 'dark',
+  setTheme: (theme) => {
+    set({ theme });
+    if (theme === 'light') {
+      document.documentElement.classList.add('light');
+      document.documentElement.classList.remove('dark');
+    } else {
+      document.documentElement.classList.add('dark');
+      document.documentElement.classList.remove('light');
+    }
+    localStorage.setItem('studio-theme', theme);
+  },
+
+  mobilePanel: 'none',
+  setMobilePanel: (panel) => set({ mobilePanel: panel }),
 }));
