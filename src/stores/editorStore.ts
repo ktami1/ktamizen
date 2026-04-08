@@ -69,8 +69,8 @@ interface EditorState {
   canRedo: () => boolean;
 
   // Canvas ref
-  fabricCanvas: fabric.Canvas | null;
-  setFabricCanvas: (canvas: fabric.Canvas | null) => void;
+  fabricCanvas: any;
+  setFabricCanvas: (canvas: any) => void;
 
   // Zoom
   zoom: number;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 export default function DesignControls() {
   const { format, setFormat, fabricCanvas, activeSlideIndex, updateSlide, pushHistory } = useEditorStore();
   const [bgColor, setBgColor] = useState('#ffffff');
-  const [selectedObj, setSelectedObj] = useState<fabric.Object | null>(null);
+  const [selectedObj, setSelectedObj] = useState<any>(null);
   const [fillColor, setFillColor] = useState('#3b82f6');
   const [strokeColor, setStrokeColor] = useState('#000000');
   const [strokeWidth, setStrokeWidth] = useState(0);
