@@ -1,10 +1,11 @@
-import { useEditorStore, FORMAT_PRESETS, GradientStop } from '@/stores/editorStore';
+import { useEditorStore, GradientStop } from '@/stores/editorStore';
 import { useCallback, useEffect, useState } from 'react';
 import { fabric } from 'fabric';
 import SliderInput from './SliderInput';
 import RecentColors from './RecentColors';
 import AlignmentTools from './AlignmentTools';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, ChevronDown } from 'lucide-react';
+import { CANVAS_PRESETS } from './CanvasPresets';
 
 export default function DesignControls() {
   const { format, setFormat, fabricCanvas, activeSlideIndex, updateSlide, pushHistory, addRecentColor } = useEditorStore();
@@ -22,6 +23,10 @@ export default function DesignControls() {
     { offset: 0, color: '#000000', opacity: 1 },
     { offset: 1, color: '#000000', opacity: 0 },
   ]);
+  const [showPresets, setShowPresets] = useState(false);
+  const [customW, setCustomW] = useState(1080);
+  const [customH, setCustomH] = useState(1080);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -96,7 +101,6 @@ export default function DesignControls() {
       const y1 = Math.round(50 + Math.cos(rad) * 50);
       const x2 = Math.round(50 + Math.sin(rad) * 50);
       const y2 = Math.round(50 + Math.cos(rad) * -50);
-
       const gradient = new fabric.Gradient({
         type: 'linear',
         coords: {
@@ -163,24 +167,63 @@ export default function DesignControls() {
     applyGradient(newStops, gradientAngle, gradientType);
   };
 
+  const applyPreset = (name: string, width: number, height: number) => {
+    setFormat({ name, width, height, ratio: `${width}:${height}` });
+    setShowPresets(false);
+  };
+
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Canvas Format */}
       <div>
-        <label className="editor-label mb-2 block">Canvas Format</label>
-        <div className="space-y-0.5">
-          {FORMAT_PRESETS.map((preset) => (
-            <button
-              key={preset.name}
-              onClick={() => setFormat(preset)}
-              className={`w-full text-left px-3 py-1.5 rounded-md text-xs transition-colors ${
-                format.name === preset.name ? 'bg-primary/20 text-primary' : 'text-editor-text hover:bg-editor-hover'
-              }`}
-            >
-              <span className="font-medium">{preset.name}</span>
-              <span className="text-muted-foreground ml-2">{preset.width}×{preset.height}</span>
-            </button>
-          ))}
+        <div className="flex items-center justify-between mb-2">
+          <label className="editor-label">Canvas Size</label>
+          <button onClick={() => setShowPresets(!showPresets)} className="editor-btn text-[10px] gap-1 px-2">
+            {format.name} <ChevronDown size={10} />
+          </button>
         </div>
+
+        {showPresets && (
+          <div className="bg-editor-surface rounded-lg border border-editor-border max-h-64 overflow-y-auto mb-3">
+            {CANVAS_PRESETS.map((cat) => (
+              <div key={cat.name}>
+                <button
+                  onClick={() => setExpandedCategory(expandedCategory === cat.name ? null : cat.name)}
+                  className="w-full text-left px-3 py-1.5 text-[11px] font-semibold text-editor-text-bright hover:bg-editor-hover transition-colors flex items-center justify-between"
+                >
+                  {cat.name}
+                  <ChevronDown size={10} className={`transition-transform ${expandedCategory === cat.name ? 'rotate-180' : ''}`} />
+                </button>
+                {expandedCategory === cat.name && (
+                  <div>
+                    {cat.presets.map((p) => (
+                      <button
+                        key={p.name}
+                        onClick={() => applyPreset(p.name, p.width, p.height)}
+                        className="w-full text-left px-4 py-1 text-[10px] text-editor-text hover:bg-editor-hover transition-colors"
+                      >
+                        {p.name} <span className="text-muted-foreground ml-1">{p.width}×{p.height}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {/* Custom */}
+            <div className="px-3 py-2 border-t border-editor-border">
+              <span className="text-[10px] font-semibold text-editor-text-bright">Custom</span>
+              <div className="flex gap-1 mt-1">
+                <input type="number" value={customW} onChange={(e) => setCustomW(Number(e.target.value))} className="editor-input w-20 text-center" placeholder="W" />
+                <span className="text-muted-foreground self-center text-xs">×</span>
+                <input type="number" value={customH} onChange={(e) => setCustomH(Number(e.target.value))} className="editor-input w-20 text-center" placeholder="H" />
+                <button onClick={() => applyPreset(`${customW}×${customH}`, customW, customH)} className="editor-btn text-[10px] px-2 bg-primary/20 text-primary">Set</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="text-[10px] text-muted-foreground">{format.width} × {format.height}px</div>
       </div>
 
       <div>
@@ -223,19 +266,11 @@ export default function DesignControls() {
 
             {gradientEnabled ? (
               <div className="space-y-3">
-                {/* Gradient type toggle */}
                 <div className="flex gap-1">
-                  <button
-                    onClick={() => { setGradientType('linear'); applyGradient(gradientStops, gradientAngle, 'linear'); }}
-                    className={`flex-1 py-1 text-[10px] rounded-md transition-colors ${gradientType === 'linear' ? 'bg-primary/20 text-primary' : 'bg-editor-surface text-editor-text'}`}
-                  >Linear</button>
-                  <button
-                    onClick={() => { setGradientType('radial'); applyGradient(gradientStops, gradientAngle, 'radial'); }}
-                    className={`flex-1 py-1 text-[10px] rounded-md transition-colors ${gradientType === 'radial' ? 'bg-primary/20 text-primary' : 'bg-editor-surface text-editor-text'}`}
-                  >Radial</button>
+                  <button onClick={() => { setGradientType('linear'); applyGradient(gradientStops, gradientAngle, 'linear'); }} className={`flex-1 py-1 text-[10px] rounded-md transition-colors ${gradientType === 'linear' ? 'bg-primary/20 text-primary' : 'bg-editor-surface text-editor-text'}`}>Linear</button>
+                  <button onClick={() => { setGradientType('radial'); applyGradient(gradientStops, gradientAngle, 'radial'); }} className={`flex-1 py-1 text-[10px] rounded-md transition-colors ${gradientType === 'radial' ? 'bg-primary/20 text-primary' : 'bg-editor-surface text-editor-text'}`}>Radial</button>
                 </div>
 
-                {/* Gradient preview bar */}
                 <div
                   className="h-6 rounded-md border border-editor-border"
                   style={{
@@ -248,7 +283,6 @@ export default function DesignControls() {
                   }}
                 />
 
-                {/* Color stops */}
                 <div className="space-y-2">
                   {gradientStops.map((stop, i) => (
                     <div key={i} className="flex items-center gap-1.5">

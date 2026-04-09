@@ -8,11 +8,13 @@ export type FormatPreset = {
 };
 
 export const FORMAT_PRESETS: FormatPreset[] = [
-  { name: 'Post (1:1)', width: 1080, height: 1080, ratio: '1:1' },
-  { name: 'Portrait (4:5)', width: 1080, height: 1350, ratio: '4:5' },
-  { name: 'Story (9:16)', width: 1080, height: 1920, ratio: '9:16' },
-  { name: 'Landscape (16:9)', width: 1920, height: 1080, ratio: '16:9' },
-  { name: 'iPhone Wallpaper', width: 1290, height: 2796, ratio: '~9:19.5' },
+  { name: 'Instagram Post', width: 1080, height: 1080, ratio: '1:1' },
+  { name: 'Instagram Portrait', width: 1080, height: 1350, ratio: '4:5' },
+  { name: 'Instagram Story', width: 1080, height: 1920, ratio: '9:16' },
+  { name: 'Facebook Post', width: 1200, height: 630, ratio: '~19:10' },
+  { name: 'YouTube Thumbnail', width: 1280, height: 720, ratio: '16:9' },
+  { name: 'Twitter/X Post', width: 1600, height: 900, ratio: '16:9' },
+  { name: 'LinkedIn Post', width: 1200, height: 627, ratio: '~2:1' },
 ];
 
 export type SlideData = {
@@ -55,6 +57,13 @@ const DEFAULT_TEXT_PRESETS: TextPreset[] = [
   { id: 'p3', name: 'Subtitle', category: 'subtitle', fontFamily: 'Inter Tight', fontSize: 28, fontWeight: '500', fill: '#cccccc', charSpacing: 20, lineHeight: 1.4, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
   { id: 'p4', name: 'Caption', category: 'caption', fontFamily: 'Inter Tight', fontSize: 16, fontWeight: '400', fill: '#999999', charSpacing: 40, lineHeight: 1.5, strokeEnabled: false, strokeColor: '#000000', strokeWidth: 0 },
 ];
+
+const generateId = () => Math.random().toString(36).substring(2, 10);
+
+const createEmptySlide = (): SlideData => ({
+  id: generateId(),
+  objects: JSON.stringify({ version: '5.3.0', objects: [] }),
+});
 
 interface EditorState {
   projectName: string;
@@ -116,17 +125,12 @@ interface EditorState {
   mobilePanel: 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust';
   setMobilePanel: (panel: 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust') => void;
 
-  // Text input sync
   textInputValue: string;
   setTextInputValue: (val: string) => void;
+
+  showShortcuts: boolean;
+  setShowShortcuts: (v: boolean) => void;
 }
-
-const generateId = () => Math.random().toString(36).substring(2, 10);
-
-const createEmptySlide = (): SlideData => ({
-  id: generateId(),
-  objects: JSON.stringify({ version: '5.3.0', objects: [] }),
-});
 
 export const useEditorStore = create<EditorState>((set, get) => ({
   projectName: 'Untitled Project',
@@ -205,13 +209,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       activeSlideIndex: entry.activeSlideIndex,
       historyIndex: historyIndex - 1,
     });
-    // Reload canvas from the restored slide
     if (fabricCanvas) {
       try {
         const data = JSON.parse(entry.slides[entry.activeSlideIndex].objects);
-        fabricCanvas.loadFromJSON(data, () => {
-          fabricCanvas.renderAll();
-        });
+        fabricCanvas.loadFromJSON(data, () => { fabricCanvas.renderAll(); });
       } catch { /* ignore */ }
     }
   },
@@ -228,9 +229,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     if (fabricCanvas) {
       try {
         const data = JSON.parse(entry.slides[entry.activeSlideIndex].objects);
-        fabricCanvas.loadFromJSON(data, () => {
-          fabricCanvas.renderAll();
-        });
+        fabricCanvas.loadFromJSON(data, () => { fabricCanvas.renderAll(); });
       } catch { /* ignore */ }
     }
   },
@@ -286,4 +285,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   textInputValue: '',
   setTextInputValue: (val) => set({ textInputValue: val }),
+
+  showShortcuts: false,
+  setShowShortcuts: (v) => set({ showShortcuts: v }),
 }));

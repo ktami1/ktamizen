@@ -6,7 +6,10 @@ import Inspector from '@/components/editor/Inspector';
 import SlideStrip from '@/components/editor/SlideStrip';
 import LayerPanel from '@/components/editor/LayerPanel';
 import MobileBottomSheet from '@/components/editor/MobileBottomSheet';
-import { Sparkles, Sun, Moon, Layers, Type, Image, Square, Sliders, Download } from 'lucide-react';
+import FloatingToolbar from '@/components/editor/FloatingToolbar';
+import CanvasContextMenu from '@/components/editor/CanvasContextMenu';
+import KeyboardShortcutsModal from '@/components/editor/KeyboardShortcutsModal';
+import { Sparkles, Sun, Moon, Layers, Type, Image, Square, Sliders, Keyboard } from 'lucide-react';
 
 const mobileNavItems = [
   { id: 'layers' as const, icon: Layers, label: 'Layers' },
@@ -17,7 +20,7 @@ const mobileNavItems = [
 ] as const;
 
 export default function Editor() {
-  const { projectName, setProjectName, theme, setTheme, mobilePanel, setMobilePanel } = useEditorStore();
+  const { projectName, setProjectName, theme, setTheme, mobilePanel, setMobilePanel, showShortcuts, setShowShortcuts } = useEditorStore();
 
   useEffect(() => {
     const saved = localStorage.getItem('studio-theme');
@@ -41,6 +44,13 @@ export default function Editor() {
         />
         <div className="flex items-center gap-1">
           <button
+            onClick={() => setShowShortcuts(true)}
+            className="editor-btn hidden sm:flex"
+            title="Keyboard Shortcuts (?)"
+          >
+            <Keyboard size={14} />
+          </button>
+          <button
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="editor-btn"
             title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
@@ -62,13 +72,22 @@ export default function Editor() {
 
       <SlideStrip />
 
-      {/* Mobile bottom nav - PicsArt style */}
+      {/* Floating elements */}
+      <FloatingToolbar />
+      <CanvasContextMenu />
+
+      {/* Keyboard shortcuts modal */}
+      {showShortcuts && (
+        <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />
+      )}
+
+      {/* Mobile bottom nav */}
       <div className="flex lg:hidden border-t border-editor-border bg-editor-panel safe-area-bottom">
         {mobileNavItems.map((item) => (
           <button
             key={item.id}
             onClick={() => setMobilePanel(mobilePanel === item.id ? 'none' : item.id)}
-            className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] transition-colors
+            className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] transition-colors min-h-[44px]
               ${mobilePanel === item.id ? 'text-primary' : 'text-editor-text'}`}
           >
             <item.icon size={18} />
