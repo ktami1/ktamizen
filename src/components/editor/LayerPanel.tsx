@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { Eye, EyeOff, Lock, Unlock, Trash2, Copy, ChevronUp, ChevronDown, GripVertical } from 'lucide-react';
 import { fabric } from 'fabric';
@@ -10,12 +10,16 @@ type LayerItem = {
   visible: boolean;
   locked: boolean;
   obj: fabric.Object;
+  zIndex: number;
 };
 
 export default function LayerPanel() {
   const { fabricCanvas, pushHistory } = useEditorStore();
   const [layers, setLayers] = useState<LayerItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const dragRef = useRef<number | null>(null);
 
   const refreshLayers = () => {
     if (!fabricCanvas) return;
@@ -27,7 +31,9 @@ export default function LayerPanel() {
       visible: obj.visible !== false,
       locked: !!(obj.lockMovementX && obj.lockMovementY),
       obj,
+      zIndex: i,
     }));
+    // Reverse so top layer is first in list
     setLayers(items.reverse());
   };
 
@@ -40,6 +46,10 @@ export default function LayerPanel() {
     fabricCanvas.on('object:removed', handler);
     fabricCanvas.on('object:modified', handler);
     fabricCanvas.on('selection:created', () => {
+      const obj = fabricCanvas.getActiveObject();
+      setSelectedId((obj as any)?.id || null);
+    });
+    fabricCanvas.on('selection:updated', () => {
       const obj = fabricCanvas.getActiveObject();
       setSelectedId((obj as any)?.id || null);
     });
@@ -110,6 +120,50 @@ export default function LayerPanel() {
     pushHistory();
   };
 
+  // Drag and drop reorder
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDragIndex(index);
+    dragRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+    // Make drag image semi-transparent
+    const el = e.currentTarget as HTMLElement;
+    el.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e: React.DragEvent) => {
+    (e.currentTarget as HTMLElement).style.opacity = '1';
+    if (dragRef.current !== null && dropIndex !== null && dragRef.current !== dropIndex) {
+      reorderByDrag(dragRef.current, dropIndex);
+    }
+    setDragIndex(null);
+    setDropIndex(null);
+    dragRef.current = null;
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropIndex(index);
+  };
+
+  const reorderByDrag = (fromDisplayIndex: number, toDisplayIndex: number) => {
+    if (!fabricCanvas) return;
+    const objs = fabricCanvas.getObjects();
+    const totalCount = objs.length;
+    // Display is reversed: display index 0 = top of stack (last in array)
+    const fromCanvasIndex = totalCount - 1 - fromDisplayIndex;
+    const toCanvasIndex = totalCount - 1 - toDisplayIndex;
+    
+    const obj = objs[fromCanvasIndex];
+    if (!obj) return;
+
+    // Move to target position
+    fabricCanvas.moveTo(obj, toCanvasIndex);
+    fabricCanvas.renderAll();
+    refreshLayers();
+    pushHistory();
+  };
+
   return (
     <div className="w-56 bg-editor-panel border-r border-editor-border flex flex-col h-full overflow-hidden">
       <div className="px-3 py-2.5 border-b border-editor-border">
@@ -119,29 +173,34 @@ export default function LayerPanel() {
         {layers.length === 0 && (
           <div className="text-center text-muted-foreground text-xs py-6">No layers yet</div>
         )}
-        {layers.map((layer) => (
+        {layers.map((layer, index) => (
           <div
             key={layer.id}
+            draggable
+            onDragStart={(e) => handleDragStart(e, index)}
+            onDragEnd={handleDragEnd}
+            onDragOver={(e) => handleDragOver(e, index)}
             onClick={() => selectLayer(layer)}
             className={`flex items-center gap-1.5 px-2 py-1.5 border-b border-editor-border/50 cursor-pointer transition-colors group
-              ${selectedId === layer.id ? 'bg-primary/10' : 'hover:bg-editor-hover'}`}
+              ${selectedId === layer.id ? 'bg-primary/10' : 'hover:bg-editor-hover'}
+              ${dropIndex === index && dragIndex !== index ? 'border-t-2 border-t-primary' : ''}`}
           >
-            <GripVertical size={12} className="text-muted-foreground/50 flex-shrink-0" />
+            <GripVertical size={12} className="text-muted-foreground/50 flex-shrink-0 cursor-grab active:cursor-grabbing" />
             <div className="flex-1 min-w-0">
               <div className="text-[11px] text-editor-text-bright truncate">{layer.name}</div>
               <div className="text-[9px] text-muted-foreground capitalize">{layer.type}</div>
             </div>
             <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'up'); }} className="editor-btn p-0.5"><ChevronUp size={11} /></button>
-              <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'down'); }} className="editor-btn p-0.5"><ChevronDown size={11} /></button>
-              <button onClick={(e) => { e.stopPropagation(); toggleVisibility(layer); }} className="editor-btn p-0.5">
+              <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'up'); }} className="editor-btn p-0.5" title="Bring Forward"><ChevronUp size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'down'); }} className="editor-btn p-0.5" title="Send Backward"><ChevronDown size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); toggleVisibility(layer); }} className="editor-btn p-0.5" title={layer.visible ? 'Hide' : 'Show'}>
                 {layer.visible ? <Eye size={11} /> : <EyeOff size={11} />}
               </button>
-              <button onClick={(e) => { e.stopPropagation(); toggleLock(layer); }} className="editor-btn p-0.5">
+              <button onClick={(e) => { e.stopPropagation(); toggleLock(layer); }} className="editor-btn p-0.5" title={layer.locked ? 'Unlock' : 'Lock'}>
                 {layer.locked ? <Lock size={11} /> : <Unlock size={11} />}
               </button>
-              <button onClick={(e) => { e.stopPropagation(); duplicateLayer(layer); }} className="editor-btn p-0.5"><Copy size={11} /></button>
-              <button onClick={(e) => { e.stopPropagation(); deleteLayer(layer); }} className="editor-btn p-0.5 hover:text-destructive"><Trash2 size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); duplicateLayer(layer); }} className="editor-btn p-0.5" title="Duplicate"><Copy size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); deleteLayer(layer); }} className="editor-btn p-0.5 hover:text-destructive" title="Delete"><Trash2 size={11} /></button>
             </div>
           </div>
         ))}
