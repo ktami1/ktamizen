@@ -15,8 +15,10 @@
     --popover: 240 5% 12%;
     --popover-foreground: 0 0% 95%;
 
-    --primary: 210 100% 60%;
+    --primary: 38 48% 61%;
     --primary-foreground: 0 0% 100%;
+    --gold: #c8a96e;
+    --gold-bright: #e8c97e;
 
     --secondary: 240 4% 16%;
     --secondary-foreground: 0 0% 85%;
@@ -40,7 +42,7 @@
     --editor-surface: 240 5% 10%;
     --editor-panel: 240 5% 8%;
     --editor-hover: 240 4% 16%;
-    --editor-active: 210 100% 60%;
+    --editor-active: 38 48% 61%;
     --editor-border: 240 4% 15%;
     --editor-text: 0 0% 75%;
     --editor-text-bright: 0 0% 95%;
@@ -128,6 +130,11 @@
   }
   .editor-btn {
     @apply flex items-center justify-center rounded-md p-1.5 text-editor-text hover:text-editor-text-bright hover:bg-editor-hover transition-colors active:scale-95;
+  }
+  @media (max-width: 767px) {
+    .editor-btn {
+      @apply min-w-[44px] min-h-[44px];
+    }
   }
   .editor-btn-active {
     @apply bg-primary/20 text-primary;
