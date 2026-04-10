@@ -33,7 +33,6 @@ export default function LayerPanel() {
       obj,
       zIndex: i,
     }));
-    // Reverse so top layer is first in list
     setLayers(items.reverse());
   };
 
@@ -120,12 +119,10 @@ export default function LayerPanel() {
     pushHistory();
   };
 
-  // Drag and drop reorder
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDragIndex(index);
     dragRef.current = index;
     e.dataTransfer.effectAllowed = 'move';
-    // Make drag image semi-transparent
     const el = e.currentTarget as HTMLElement;
     el.style.opacity = '0.5';
   };
@@ -150,14 +147,12 @@ export default function LayerPanel() {
     if (!fabricCanvas) return;
     const objs = fabricCanvas.getObjects();
     const totalCount = objs.length;
-    // Display is reversed: display index 0 = top of stack (last in array)
     const fromCanvasIndex = totalCount - 1 - fromDisplayIndex;
     const toCanvasIndex = totalCount - 1 - toDisplayIndex;
     
     const obj = objs[fromCanvasIndex];
     if (!obj) return;
 
-    // Move to target position
     fabricCanvas.moveTo(obj, toCanvasIndex);
     fabricCanvas.renderAll();
     refreshLayers();
@@ -165,7 +160,7 @@ export default function LayerPanel() {
   };
 
   return (
-    <div className="w-56 bg-editor-panel border-r border-editor-border flex flex-col h-full overflow-hidden">
+    <div className="w-full md:w-56 bg-editor-panel md:border-r border-editor-border flex flex-col h-full overflow-hidden">
       <div className="px-3 py-2.5 border-b border-editor-border">
         <span className="editor-label">Layers</span>
       </div>
@@ -181,7 +176,7 @@ export default function LayerPanel() {
             onDragEnd={handleDragEnd}
             onDragOver={(e) => handleDragOver(e, index)}
             onClick={() => selectLayer(layer)}
-            className={`flex items-center gap-1.5 px-2 py-1.5 border-b border-editor-border/50 cursor-pointer transition-colors group
+            className={`flex items-center gap-1.5 px-2 py-2 min-h-[44px] border-b border-editor-border/50 cursor-pointer transition-colors group
               ${selectedId === layer.id ? 'bg-primary/10' : 'hover:bg-editor-hover'}
               ${dropIndex === index && dragIndex !== index ? 'border-t-2 border-t-primary' : ''}`}
           >
@@ -190,7 +185,21 @@ export default function LayerPanel() {
               <div className="text-[11px] text-editor-text-bright truncate">{layer.name}</div>
               <div className="text-[9px] text-muted-foreground capitalize">{layer.type}</div>
             </div>
-            <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Mobile: always visible actions */}
+            <div className="flex gap-0.5 md:hidden">
+              <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'up'); }} className="editor-btn p-0.5" title="Bring Forward"><ChevronUp size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'down'); }} className="editor-btn p-0.5" title="Send Backward"><ChevronDown size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); toggleVisibility(layer); }} className="editor-btn p-0.5" title={layer.visible ? 'Hide' : 'Show'}>
+                {layer.visible ? <Eye size={11} /> : <EyeOff size={11} />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); toggleLock(layer); }} className="editor-btn p-0.5" title={layer.locked ? 'Unlock' : 'Lock'}>
+                {layer.locked ? <Lock size={11} /> : <Unlock size={11} />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); duplicateLayer(layer); }} className="editor-btn p-0.5" title="Duplicate"><Copy size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); deleteLayer(layer); }} className="editor-btn p-0.5 hover:text-destructive" title="Delete"><Trash2 size={11} /></button>
+            </div>
+            {/* Desktop: hover only */}
+            <div className="hidden md:flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
               <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'up'); }} className="editor-btn p-0.5" title="Bring Forward"><ChevronUp size={11} /></button>
               <button onClick={(e) => { e.stopPropagation(); moveLayer(layer, 'down'); }} className="editor-btn p-0.5" title="Send Backward"><ChevronDown size={11} /></button>
               <button onClick={(e) => { e.stopPropagation(); toggleVisibility(layer); }} className="editor-btn p-0.5" title={layer.visible ? 'Hide' : 'Show'}>

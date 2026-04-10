@@ -1,7 +1,7 @@
 import { 
   MousePointer2, Type, Square, Image,
   Undo2, Redo2,
-  Circle, Triangle, Minus
+  Circle, Triangle, Minus, ImagePlus
 } from 'lucide-react';
 import { useEditorStore, EditorTool } from '@/stores/editorStore';
 import { fabric } from 'fabric';
@@ -44,20 +44,24 @@ export default function Toolbar() {
 
   const addText = () => {
     if (!fabricCanvas) return;
-    const text = new fabric.IText('Double click to edit', {
-      left: format.width / 2 - 150,
-      top: format.height / 2 - 20,
+    const isMobile = window.innerWidth < 768;
+    const text = new fabric.IText(isMobile ? 'Tap to edit' : 'Double click to edit', {
+      left: format.width / 2 - 200,
+      top: format.height / 2 - 30,
       fontFamily: 'Inter Tight',
-      fontSize: 40,
-      fill: '#000000',
-      fontWeight: 'normal',
-      textAlign: 'left',
+      fontSize: 60,
+      fill: '#ffffff',
+      fontWeight: '700',
+      textAlign: 'center',
     } as any);
     (text as any).id = generateId();
     (text as any).name = 'Text';
     fabricCanvas.add(text);
     fabricCanvas.setActiveObject(text);
     fabricCanvas.renderAll();
+    if (isMobile) {
+      setTimeout(() => { (text as fabric.IText).enterEditing(); fabricCanvas.renderAll(); }, 100);
+    }
   };
 
   const addShape = (type: string) => {
@@ -102,11 +106,14 @@ export default function Toolbar() {
     reader.onload = (event) => {
       const imgUrl = event.target?.result as string;
       fabric.Image.fromURL(imgUrl, (img) => {
-        const maxDim = Math.min(format.width, format.height) * 0.6;
-        const scale = Math.min(maxDim / (img.width || 1), maxDim / (img.height || 1));
+        const scaleX = format.width / (img.width || 1);
+        const scaleY = format.height / (img.height || 1);
+        const scale = Math.max(scaleX, scaleY);
+        const scaledW = (img.width || 0) * scale;
+        const scaledH = (img.height || 0) * scale;
         img.set({
-          left: format.width / 2 - ((img.width || 0) * scale) / 2,
-          top: format.height / 2 - ((img.height || 0) * scale) / 2,
+          left: (format.width - scaledW) / 2,
+          top: (format.height - scaledH) / 2,
           scaleX: scale,
           scaleY: scale,
           lockUniScaling: true,
@@ -114,6 +121,7 @@ export default function Toolbar() {
         (img as any).id = generateId();
         (img as any).name = file.name.split('.')[0] || 'Image';
         fabricCanvas.add(img);
+        fabricCanvas.sendToBack(img);
         fabricCanvas.setActiveObject(img);
         fabricCanvas.renderAll();
         setActiveTool('select');
@@ -121,6 +129,36 @@ export default function Toolbar() {
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const addLogo = () => {
+    if (!fabricCanvas) return;
+    fabric.loadSVGFromURL('/ktamizen-logo.svg', (objects, options) => {
+      if (!objects || objects.length === 0) return;
+      const logo = fabric.util.groupSVGElements(objects, options);
+      logo.setCoords();
+      const naturalW = logo.width || 252;
+      const naturalH = logo.height || 252;
+      const targetW = format.width * 0.18;
+      const scale = targetW / naturalW;
+      const scaledH = naturalH * scale;
+      logo.set({
+        scaleX: scale,
+        scaleY: scale,
+        left: (format.width - targetW) / 2,
+        top: format.height - scaledH - format.height * 0.05,
+        originX: 'left',
+        originY: 'top',
+        lockUniScaling: true,
+      });
+      (logo as any).id = Math.random().toString(36).slice(2);
+      (logo as any).name = 'Ktamizen Logo';
+      fabricCanvas.add(logo);
+      fabricCanvas.bringToFront(logo);
+      fabricCanvas.setActiveObject(logo);
+      fabricCanvas.requestRenderAll();
+      pushHistory();
+    });
   };
 
   return (
@@ -148,6 +186,11 @@ export default function Toolbar() {
             <span className="hidden sm:inline text-[11px]">{tool.label}</span>
           </button>
         ))}
+
+        <button onClick={addLogo} className="editor-btn px-2 py-1.5 text-xs gap-1" title="Add Logo">
+          <ImagePlus size={16} />
+          <span className="hidden sm:inline text-[11px]">Logo</span>
+        </button>
 
         {showShapes && (
           <div className="absolute top-full left-0 mt-1 bg-editor-panel border border-editor-border rounded-lg p-1 shadow-xl animate-fade-in z-50">

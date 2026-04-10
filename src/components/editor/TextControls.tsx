@@ -82,8 +82,20 @@ export default function TextControls() {
 
   const apply = useCallback((props: Record<string, any>) => {
     if (!textObj || !fabricCanvas) return;
+    // If editing with a text selection, apply only to selection
+    if (textObj.isEditing) {
+      const selStart = textObj.selectionStart ?? 0;
+      const selEnd = textObj.selectionEnd ?? 0;
+      if (selEnd > selStart) {
+        textObj.setSelectionStyles(props, selStart, selEnd);
+        fabricCanvas.requestRenderAll();
+        pushHistory();
+        return;
+      }
+    }
+    // Otherwise apply to whole object
     textObj.set(props);
-    fabricCanvas.renderAll();
+    fabricCanvas.requestRenderAll();
     pushHistory();
   }, [textObj, fabricCanvas, pushHistory]);
 
@@ -97,7 +109,6 @@ export default function TextControls() {
     setFontFamily(font);
     apply({ fontFamily: font });
     addRecentFont(font);
-    // Dynamic load from Google Fonts
     const link = document.createElement('link');
     link.href = `https://fonts.googleapis.com/css2?family=${font.replace(/ /g, '+')}:wght@100;300;400;500;600;700;800;900&display=swap`;
     link.rel = 'stylesheet';
@@ -125,14 +136,18 @@ export default function TextControls() {
     );
   }
 
-  // Build font list with recent fonts first
-  const allFonts = [...new Set([...recentFonts, ...FONT_FAMILIES])];
-
   return (
     <div className="space-y-3 animate-fade-in">
       <TextPresets />
 
       <div className="w-full h-px bg-editor-border" />
+
+      {/* Partial selection hint */}
+      {textObj?.isEditing && (
+        <div className="text-[10px] px-2 py-1.5 rounded-md bg-primary/10" style={{ color: '#c8a96e' }}>
+          ✦ Select text to apply style to that word only
+        </div>
+      )}
 
       {/* Text Input Panel */}
       <div>

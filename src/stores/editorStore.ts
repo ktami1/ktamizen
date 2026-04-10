@@ -65,6 +65,8 @@ const createEmptySlide = (): SlideData => ({
   objects: JSON.stringify({ version: '5.3.0', objects: [] }),
 });
 
+export type MobilePanelType = 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust' | 'overlay' | 'move';
+
 interface EditorState {
   projectName: string;
   setProjectName: (name: string) => void;
@@ -122,8 +124,8 @@ interface EditorState {
   theme: 'dark' | 'light';
   setTheme: (theme: 'dark' | 'light') => void;
 
-  mobilePanel: 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust';
-  setMobilePanel: (panel: 'none' | 'layers' | 'inspector' | 'text' | 'image' | 'shapes' | 'adjust') => void;
+  mobilePanel: MobilePanelType;
+  setMobilePanel: (panel: MobilePanelType) => void;
 
   textInputValue: string;
   setTextInputValue: (val: string) => void;
@@ -263,9 +265,25 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ recentFonts: fonts.slice(0, 8) });
   },
 
-  textPresets: [...DEFAULT_TEXT_PRESETS],
-  addTextPreset: (preset) => set({ textPresets: [...get().textPresets, preset] }),
-  removeTextPreset: (id) => set({ textPresets: get().textPresets.filter(p => p.id !== id) }),
+  textPresets: (() => {
+    try {
+      const saved = localStorage.getItem('ktamizen-text-presets');
+      const custom = saved ? JSON.parse(saved) : [];
+      return [...DEFAULT_TEXT_PRESETS, ...custom];
+    } catch { return [...DEFAULT_TEXT_PRESETS]; }
+  })(),
+  addTextPreset: (preset) => {
+    const next = [...get().textPresets, preset];
+    set({ textPresets: next });
+    const custom = next.filter(p => !['p1','p2','p3','p4'].includes(p.id));
+    try { localStorage.setItem('ktamizen-text-presets', JSON.stringify(custom)); } catch {}
+  },
+  removeTextPreset: (id) => {
+    const next = get().textPresets.filter(p => p.id !== id);
+    set({ textPresets: next });
+    const custom = next.filter(p => !['p1','p2','p3','p4'].includes(p.id));
+    try { localStorage.setItem('ktamizen-text-presets', JSON.stringify(custom)); } catch {}
+  },
 
   theme: 'dark',
   setTheme: (theme) => {

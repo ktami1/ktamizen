@@ -9,14 +9,15 @@ import MobileBottomSheet from '@/components/editor/MobileBottomSheet';
 import FloatingToolbar from '@/components/editor/FloatingToolbar';
 import CanvasContextMenu from '@/components/editor/CanvasContextMenu';
 import KeyboardShortcutsModal from '@/components/editor/KeyboardShortcutsModal';
-import { Sparkles, Sun, Moon, Layers, Type, Image, Square, Sliders, Keyboard } from 'lucide-react';
+import { Sparkles, Sun, Moon, Layers, Type, Image, AlignCenter, Download, Keyboard, Undo2, Redo2 } from 'lucide-react';
 
 const mobileNavItems = [
-  { id: 'layers' as const, icon: Layers, label: 'Layers' },
-  { id: 'text' as const, icon: Type, label: 'Text' },
-  { id: 'image' as const, icon: Image, label: 'Image' },
-  { id: 'shapes' as const, icon: Square, label: 'Shapes' },
-  { id: 'adjust' as const, icon: Sliders, label: 'Adjust' },
+  { id: 'text'      as const, icon: Type,        label: 'Text'    },
+  { id: 'image'     as const, icon: Image,       label: 'Image'   },
+  { id: 'overlay'   as const, icon: Sparkles,    label: 'Overlay' },
+  { id: 'move'      as const, icon: AlignCenter, label: 'Move'    },
+  { id: 'layers'    as const, icon: Layers,      label: 'Layers'  },
+  { id: 'inspector' as const, icon: Download,    label: 'Export'  },
 ] as const;
 
 export default function Editor() {
@@ -32,10 +33,19 @@ export default function Editor() {
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-editor-bg">
       {/* Top bar */}
-      <div className="h-10 bg-editor-panel border-b border-editor-border flex items-center px-3 justify-between flex-shrink-0">
+      <div
+        className="h-12 bg-editor-panel border-b border-editor-border flex items-center px-3 justify-between flex-shrink-0"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
+      >
         <div className="flex items-center gap-2">
-          <Sparkles size={14} className="text-primary" />
-          <span className="text-[11px] font-display font-semibold text-primary hidden sm:inline">Studio</span>
+          <Sparkles size={14} style={{ color: '#c8a96e' }} />
+          <span className="text-[11px] font-display font-semibold hidden sm:inline" style={{ color: '#c8a96e' }}>STUDIO</span>
+          <button onClick={() => useEditorStore.getState().undo()} className="editor-btn ml-1 md:hidden" title="Undo">
+            <Undo2 size={16} />
+          </button>
+          <button onClick={() => useEditorStore.getState().redo()} className="editor-btn md:hidden" title="Redo">
+            <Redo2 size={16} />
+          </button>
         </div>
         <input
           value={projectName}
@@ -60,7 +70,10 @@ export default function Editor() {
         </div>
       </div>
 
-      <Toolbar />
+      {/* Toolbar — hidden on mobile */}
+      <div className="hidden md:block">
+        <Toolbar />
+      </div>
 
       <div className="flex-1 flex overflow-hidden">
         <div className="hidden md:block">
@@ -82,18 +95,28 @@ export default function Editor() {
       )}
 
       {/* Mobile bottom nav */}
-      <div className="flex lg:hidden border-t border-editor-border bg-editor-panel safe-area-bottom">
-        {mobileNavItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setMobilePanel(mobilePanel === item.id ? 'none' : item.id)}
-            className={`flex-1 flex flex-col items-center py-2 gap-0.5 text-[10px] transition-colors min-h-[44px]
-              ${mobilePanel === item.id ? 'text-primary' : 'text-editor-text'}`}
-          >
-            <item.icon size={18} />
-            <span>{item.label}</span>
-          </button>
-        ))}
+      <div className="flex md:hidden border-t border-editor-border bg-editor-panel" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+        {mobileNavItems.map((item) => {
+          const active = mobilePanel === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setMobilePanel(mobilePanel === item.id ? 'none' : item.id)}
+              style={{
+                flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', gap: 3, border: 'none', background: 'none',
+                cursor: 'pointer', minHeight: 56, position: 'relative',
+                color: active ? '#c8a96e' : 'rgba(255,255,255,0.3)',
+              }}
+            >
+              {active && <div style={{ position: 'absolute', top: 0, left: '25%', right: '25%', height: 2, borderRadius: 2, background: '#c8a96e' }} />}
+              <item.icon size={20} />
+              <span style={{ fontSize: 10, fontWeight: active ? 600 : 400 }}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <MobileBottomSheet />

@@ -17,6 +17,11 @@ export default function FloatingToolbar() {
   const [fillColor, setFillColor] = useState('#000000');
   const [opacity, setOpacity] = useState(100);
 
+  // Hide on mobile
+  if (typeof window !== 'undefined' && window.innerWidth < 768) {
+    // Don't render on mobile
+  }
+
   const updatePosition = useCallback(() => {
     if (!fabricCanvas) return;
     const obj = fabricCanvas.getActiveObject();
@@ -42,6 +47,8 @@ export default function FloatingToolbar() {
 
   const syncState = useCallback(() => {
     if (!fabricCanvas) return;
+    // Hide on mobile
+    if (typeof window !== 'undefined' && window.innerWidth < 768) { setVisible(false); return; }
     const obj = fabricCanvas.getActiveObject();
     if (!obj) { setVisible(false); return; }
 
@@ -119,13 +126,15 @@ export default function FloatingToolbar() {
   const deleteObj = () => {
     if (!fabricCanvas) return;
     const objs = fabricCanvas.getActiveObjects();
-    objs.forEach(o => fabricCanvas.remove(o));
+    objs.forEach((o: fabric.Object) => fabricCanvas.remove(o));
     fabricCanvas.discardActiveObject();
     fabricCanvas.renderAll();
     pushHistory();
   };
 
   if (!visible) return null;
+  // Double check mobile
+  if (typeof window !== 'undefined' && window.innerWidth < 768) return null;
 
   const isText = objType === 'i-text' || objType === 'textbox';
   const isImage = objType === 'image';

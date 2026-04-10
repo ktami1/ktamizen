@@ -1,0 +1,11 @@
+{
+  "name": "KTAMIZEN Studio",
+  "short_name": "KTM Studio",
+  "description": "Poster Design Studio",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0d10",
+  "theme_color": "#0d0d10",
+  "orientation": "portrait",
+  "icons": [{ "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon" }]
+}
