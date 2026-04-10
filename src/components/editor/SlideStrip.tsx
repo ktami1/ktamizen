@@ -6,7 +6,6 @@ export default function SlideStrip() {
 
   const handleSlideClick = (index: number) => {
     if (!fabricCanvas) return;
-    // Save current slide before switching
     const json = JSON.stringify(fabricCanvas.toJSON(['id', 'name']));
     updateSlide(activeSlideIndex, { objects: json });
     setActiveSlideIndex(index);
@@ -26,10 +25,18 @@ export default function SlideStrip() {
           >
             {i + 1}
           </button>
-          <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden group-hover:flex gap-0.5 bg-editor-panel border border-editor-border rounded-md p-0.5 shadow-lg z-10">
-            <button onClick={() => duplicateSlide(i)} className="editor-btn p-1" title="Duplicate"><Copy size={11} /></button>
+          {/* Mobile: always visible */}
+          <div className="absolute -top-7 left-1/2 -translate-x-1/2 flex md:hidden gap-0.5 bg-editor-panel border border-editor-border rounded-md p-0.5 shadow-lg z-10">
+            <button onClick={(e) => { e.stopPropagation(); duplicateSlide(i); }} className="editor-btn p-1" title="Duplicate"><Copy size={11} /></button>
             {slides.length > 1 && (
-              <button onClick={() => deleteSlide(i)} className="editor-btn p-1 hover:text-destructive" title="Delete"><Trash2 size={11} /></button>
+              <button onClick={(e) => { e.stopPropagation(); deleteSlide(i); }} className="editor-btn p-1 hover:text-destructive" title="Delete"><Trash2 size={11} /></button>
+            )}
+          </div>
+          {/* Desktop: hover only */}
+          <div className="absolute -top-7 left-1/2 -translate-x-1/2 hidden md:group-hover:flex gap-0.5 bg-editor-panel border border-editor-border rounded-md p-0.5 shadow-lg z-10">
+            <button onClick={(e) => { e.stopPropagation(); duplicateSlide(i); }} className="editor-btn p-1" title="Duplicate"><Copy size={11} /></button>
+            {slides.length > 1 && (
+              <button onClick={(e) => { e.stopPropagation(); deleteSlide(i); }} className="editor-btn p-1 hover:text-destructive" title="Delete"><Trash2 size={11} /></button>
             )}
           </div>
         </div>

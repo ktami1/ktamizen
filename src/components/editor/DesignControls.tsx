@@ -174,7 +174,46 @@ export default function DesignControls() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      {/* Canvas Format */}
+      {/* Quick format picker */}
+      <div className="space-y-2">
+        <span className="editor-label">Canvas Format</span>
+        <div className="grid grid-cols-4 gap-1.5">
+          {[
+            { name: 'Post', w: 1080, h: 1080 },
+            { name: 'Portrait', w: 1080, h: 1350 },
+            { name: 'Story', w: 1080, h: 1920 },
+            { name: 'Wide', w: 1080, h: 566 },
+          ].map(p => (
+            <button
+              key={p.name}
+              onClick={() => {
+                setFormat({ name: p.name, width: p.w, height: p.h, ratio: `${p.w}:${p.h}` });
+                if (fabricCanvas) { fabricCanvas.setWidth(p.w); fabricCanvas.setHeight(p.h); fabricCanvas.renderAll(); }
+              }}
+              className={`flex flex-col items-center p-2 rounded-lg border text-[10px] gap-1 transition-all ${format.width === p.w && format.height === p.h ? 'border-primary text-primary bg-primary/10' : 'border-editor-border text-muted-foreground hover:border-editor-text/30'}`}
+            >
+              <div style={{ width: 20, height: Math.round(20 * (p.h / p.w)), background: 'currentColor', borderRadius: 2, opacity: 0.4 }} />
+              {p.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Background swatches */}
+      <div className="space-y-2">
+        <span className="editor-label">Background</span>
+        <div className="flex gap-1.5 flex-wrap">
+          {['#000000','#0a0a0a','#1a1a1a','#ffffff','#f5f5f0','#c8a96e'].map(color => (
+            <div
+              key={color}
+              onClick={() => { if (fabricCanvas) { fabricCanvas.backgroundColor = color; fabricCanvas.renderAll(); pushHistory(); } handleBgChange(color); }}
+              style={{ width: 32, height: 32, borderRadius: 8, background: color, border: '2px solid rgba(255,255,255,0.15)', cursor: 'pointer' }}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* Full Canvas Format */}
       <div>
         <div className="flex items-center justify-between mb-2">
           <label className="editor-label">Canvas Size</label>

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { fabric } from 'fabric';
 import { useEditorStore } from '@/stores/editorStore';
 import { toast } from 'sonner';
+import { ImagePlus } from 'lucide-react';
 
 export default function FabricCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -25,6 +26,7 @@ export default function FabricCanvas() {
   const lastTouchDist = useRef<number>(0);
   const isPinching = useRef(false);
   const autoSaveInterval = useRef<ReturnType<typeof setInterval>>();
+  const [objectCount, setObjectCount] = useState(0);
 
   // Init canvas
   useEffect(() => {
@@ -39,16 +41,17 @@ export default function FabricCanvas() {
       controlsAboveOverlay: true,
     });
 
+    const isMobile = window.innerWidth < 768;
     fabric.Object.prototype.set({
       transparentCorners: false,
-      cornerColor: '#3b82f6',
-      cornerStrokeColor: '#3b82f6',
-      borderColor: '#3b82f6',
-      cornerSize: 10,
+      cornerColor: '#c8a96e',
+      cornerStrokeColor: '#0c0c0c',
+      borderColor: '#c8a96e',
+      cornerSize: isMobile ? 20 : 10,
       cornerStyle: 'circle',
       borderDashArray: undefined,
-      padding: 4,
-      rotatingPointOffset: 30,
+      padding: isMobile ? 10 : 4,
+      rotatingPointOffset: isMobile ? 44 : 30,
     });
 
     canvas.renderAll();
@@ -72,10 +75,14 @@ export default function FabricCanvas() {
   const fitCanvasToContainer = useCallback(() => {
     if (!containerRef.current || !fabricCanvas) return;
     const container = containerRef.current;
-    const padding = 60;
-    const scaleX = (container.clientWidth - padding) / format.width;
-    const scaleY = (container.clientHeight - padding) / format.height;
-    const newZoom = Math.min(scaleX, scaleY, 1);
+    const isMobile = window.innerWidth < 768;
+    const targetW = isMobile
+      ? container.clientWidth * 0.90
+      : container.clientWidth - 60;
+    const scaleByW = targetW / format.width;
+    const maxH = container.clientHeight - (isMobile ? 20 : 60);
+    const scaleByH = maxH / format.height;
+    const newZoom = Math.min(scaleByW, scaleByH, isMobile ? 999 : 1);
     setZoom(newZoom);
   }, [fabricCanvas, format, setZoom]);
 
@@ -102,13 +109,30 @@ export default function FabricCanvas() {
       const data = JSON.parse(slide.objects);
       fabricCanvas.loadFromJSON(data, () => {
         fabricCanvas.renderAll();
+        setObjectCount(fabricCanvas.getObjects().length);
       });
     } catch {
       fabricCanvas.clear();
       fabricCanvas.backgroundColor = '#ffffff';
       fabricCanvas.renderAll();
+      setObjectCount(0);
     }
   }, [activeSlideIndex, fabricCanvas]);
+
+  const autoSwitchPanel = (obj?: fabric.Object) => {
+    if (!obj) return;
+    const isMobile = window.innerWidth < 768;
+    if (obj.type === 'i-text' || obj.type === 'textbox') {
+      setInspectorTab('text');
+      setTextInputValue((obj as fabric.IText).text || '');
+      if (isMobile) setMobilePanel('text');
+    } else if (obj.type === 'image') {
+      setInspectorTab('image');
+      if (isMobile) setMobilePanel('image');
+    } else {
+      setInspectorTab('design');
+    }
+  };
 
   // Selection events
   useEffect(() => {
@@ -134,6 +158,7 @@ export default function FabricCanvas() {
     const onObjectModified = () => {
       saveCurrentSlide();
       pushHistory();
+      setObjectCount(fabricCanvas.getObjects().length);
     };
 
     const onTextChanged = () => {
@@ -149,6 +174,7 @@ export default function FabricCanvas() {
     fabricCanvas.on('selection:cleared', onSelectionCleared);
     fabricCanvas.on('object:modified', onObjectModified);
     fabricCanvas.on('object:added', onObjectModified);
+    fabricCanvas.on('object:removed', () => setObjectCount(fabricCanvas.getObjects().length));
     fabricCanvas.on('text:changed', onTextChanged);
 
     return () => {
@@ -157,26 +183,29 @@ export default function FabricCanvas() {
       fabricCanvas.off('selection:cleared', onSelectionCleared);
       fabricCanvas.off('object:modified', onObjectModified);
       fabricCanvas.off('object:added', onObjectModified);
+      fabricCanvas.off('object:removed');
       fabricCanvas.off('text:changed', onTextChanged);
     };
   }, [fabricCanvas, saveCurrentSlide, pushHistory, setSelectedObjectIds, setInspectorTab, setMobilePanel, setTextInputValue]);
-
-  const autoSwitchPanel = (obj?: fabric.Object) => {
-    if (!obj) return;
-    if (obj.type === 'i-text' || obj.type === 'textbox') {
-      setInspectorTab('text');
-      setTextInputValue((obj as fabric.IText).text || '');
-    } else if (obj.type === 'image') {
-      setInspectorTab('image');
-    } else {
-      setInspectorTab('design');
-    }
-  };
 
   useEffect(() => {
     if (!fabricCanvas) return;
     fabricCanvas.isDrawingMode = false;
     fabricCanvas.selection = true;
+  }, [fabricCanvas]);
+
+  // Single tap = enter text edit mode on mobile
+  useEffect(() => {
+    if (!fabricCanvas || window.innerWidth >= 768) return;
+    const onDown = () => {
+      const obj = fabricCanvas.getActiveObject();
+      if (obj && (obj.type === 'i-text' || obj.type === 'textbox')) {
+        const t = obj as fabric.IText;
+        if (!t.isEditing) setTimeout(() => { t.enterEditing(); fabricCanvas.renderAll(); }, 80);
+      }
+    };
+    fabricCanvas.on('mouse:down', onDown);
+    return () => { fabricCanvas.off('mouse:down', onDown); };
   }, [fabricCanvas]);
 
   // Auto-save every 30s
@@ -204,20 +233,17 @@ export default function FabricCanvas() {
       const target = e.target as HTMLElement;
       const isInputField = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable;
       
-      // Check if we're editing text in fabric
       const activeObj = fabricCanvas.getActiveObject();
       const isEditingText = activeObj && (activeObj as any).isEditing;
 
       const mod = e.metaKey || e.ctrlKey;
 
-      // ? key for shortcuts modal
       if (e.key === '?' && !isInputField) {
         e.preventDefault();
         useEditorStore.getState().setShowShortcuts(true);
         return;
       }
 
-      // Escape
       if (e.key === 'Escape') {
         if (isEditingText) {
           (activeObj as fabric.IText).exitEditing();
@@ -229,12 +255,9 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Don't intercept when typing in inputs (except mod shortcuts)
       if (isInputField && !mod) return;
-      // Don't intercept most keys when editing text on canvas
       if (isEditingText && !mod) return;
 
-      // Delete / Backspace
       if ((e.key === 'Delete' || e.key === 'Backspace') && !isEditingText && !isInputField) {
         const activeObjects = fabricCanvas.getActiveObjects();
         activeObjects.forEach((obj: fabric.Object) => fabricCanvas.remove(obj));
@@ -245,14 +268,12 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Arrow keys
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !isEditingText && !isInputField) {
         e.preventDefault();
         const obj = fabricCanvas.getActiveObject();
         if (!obj) return;
 
         if (mod) {
-          // Snap to edge
           const bound = obj.getBoundingRect();
           switch (e.key) {
             case 'ArrowLeft': obj.set({ left: (obj.left || 0) - bound.left }); break;
@@ -280,7 +301,6 @@ export default function FabricCanvas() {
 
       e.preventDefault();
 
-      // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y
       if (e.key === 'z' || e.key === 'Z') {
         if (e.shiftKey) {
           useEditorStore.getState().redo();
@@ -294,7 +314,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+A select all
       if (e.key === 'a') {
         fabricCanvas.discardActiveObject();
         const allObjs = fabricCanvas.getObjects();
@@ -306,7 +325,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+C copy
       if (e.key === 'c' && !e.shiftKey) {
         if (activeObj) {
           activeObj.clone((cloned: fabric.Object) => { (window as any).__clipboard = cloned; });
@@ -314,7 +332,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+V paste
       if (e.key === 'v') {
         const clipboard = (window as any).__clipboard;
         if (clipboard) {
@@ -331,7 +348,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+D duplicate
       if (e.key === 'd') {
         if (activeObj) {
           activeObj.clone((cloned: fabric.Object) => {
@@ -348,7 +364,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+G group
       if (e.key === 'g') {
         if (activeObj && activeObj.type === 'activeSelection') {
           (activeObj as fabric.ActiveSelection).toGroup();
@@ -358,7 +373,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Text formatting shortcuts
       if (activeObj && (activeObj.type === 'i-text' || activeObj.type === 'textbox')) {
         const t = activeObj as fabric.IText;
         if (e.key === 'b') {
@@ -381,7 +395,6 @@ export default function FabricCanvas() {
         }
       }
 
-      // Ctrl+] bring forward, Ctrl+[ send backward
       if (e.key === ']') {
         if (activeObj) {
           if (e.shiftKey) fabricCanvas.bringToFront(activeObj);
@@ -401,7 +414,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+L lock/unlock
       if (e.key === 'l') {
         if (activeObj) {
           const lock = !activeObj.lockMovementX;
@@ -415,7 +427,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+H flip horizontal
       if (e.key === 'h') {
         if (activeObj) {
           activeObj.set({ flipX: !activeObj.flipX });
@@ -425,7 +436,6 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Ctrl+J flip vertical
       if (e.key === 'j') {
         if (activeObj) {
           activeObj.set({ flipY: !activeObj.flipY });
@@ -435,13 +445,11 @@ export default function FabricCanvas() {
         return;
       }
 
-      // Zoom shortcuts
       if (e.key === '0') { fitCanvasToContainer(); return; }
       if (e.key === '1') { setZoom(1); return; }
       if (e.key === '2') { setZoom(2); return; }
     };
 
-    // F2 rename
     const handleKeyDownF2 = (e: KeyboardEvent) => {
       if (e.key === 'F2' && fabricCanvas) {
         const obj = fabricCanvas.getActiveObject();
@@ -520,8 +528,13 @@ export default function FabricCanvas() {
     return () => container.removeEventListener('wheel', onWheel);
   }, []);
 
+  const handleEmptyCanvasTap = () => {
+    const fileInput = document.querySelector('input[type="file"][accept="image/*"]') as HTMLInputElement;
+    if (fileInput) fileInput.click();
+  };
+
   return (
-    <div ref={containerRef} className="flex-1 flex items-center justify-center bg-editor-bg overflow-hidden relative touch-none">
+    <div ref={containerRef} className="flex-1 flex items-center justify-center bg-editor-bg overflow-hidden relative" style={{ touchAction: 'none' }}>
       <div
         className="relative shadow-2xl"
         style={{
@@ -532,6 +545,20 @@ export default function FabricCanvas() {
       >
         <canvas ref={canvasRef} />
       </div>
+
+      {/* Empty canvas overlay */}
+      {fabricCanvas && objectCount === 0 && (
+        <div
+          onClick={handleEmptyCanvasTap}
+          style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', gap: 12, background: 'rgba(0,0,0,0.4)', pointerEvents: 'auto' }}
+        >
+          <div style={{ width: 56, height: 56, borderRadius: 28, background: 'rgba(200,169,110,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ImagePlus size={24} color="#c8a96e" />
+          </div>
+          <span style={{ fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>Aggiungi immagine</span>
+        </div>
+      )}
+
       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 bg-editor-panel/90 backdrop-blur-sm border border-editor-border rounded-full px-3 py-1.5 shadow-lg">
         <button onClick={() => setZoom(zoom - 0.1)} className="editor-btn text-xs w-7 h-7 rounded-full" title="Zoom Out">−</button>
         <span className="text-[11px] text-editor-text-bright min-w-[3rem] text-center font-medium">{Math.round(zoom * 100)}%</span>

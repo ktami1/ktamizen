@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useEditorStore } from '@/stores/editorStore';
 import { fabric } from 'fabric';
 import { RotateCw, FlipHorizontal, FlipVertical, Lock, Unlock } from 'lucide-react';
@@ -45,6 +45,7 @@ export default function ImageControls() {
   const [imgScale, setImgScale] = useState(100);
   const [imgWidth, setImgWidth] = useState(0);
   const [imgHeight, setImgHeight] = useState(0);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -83,38 +84,43 @@ export default function ImageControls() {
 
   const applyFilters = useCallback((newAdj: Adjustments) => {
     if (!imgObj || !fabricCanvas) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      if (!imgObj || !fabricCanvas) return;
+      const filters: fabric.IBaseFilter[] = [];
 
-    const filters: fabric.IBaseFilter[] = [];
+      if (newAdj.brightness !== 0) {
+        filters.push(new fabric.Image.filters.Brightness({ brightness: newAdj.brightness / 200 }));
+      }
+      if (newAdj.contrast !== 0) {
+        filters.push(new fabric.Image.filters.Contrast({ contrast: newAdj.contrast / 100 }));
+      }
+      if (newAdj.saturation !== 0) {
+        filters.push(new fabric.Image.filters.Saturation({ saturation: newAdj.saturation / 100 }));
+      }
+      if (newAdj.exposure !== 0) {
+        filters.push(new fabric.Image.filters.Brightness({ brightness: newAdj.exposure / 400 }));
+      }
+      if (newAdj.temperature !== 0) {
+        const matrix = newAdj.temperature > 0
+          ? [1 + newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1 - newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0]
+          : [1 + newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1 - newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0];
+        filters.push(new fabric.Image.filters.ColorMatrix({ matrix }));
+      }
+      if (newAdj.blur > 0) {
+        filters.push(new fabric.Image.filters.Blur({ blur: newAdj.blur / 10 }));
+      }
+      if (newAdj.grain > 0) {
+        filters.push(new fabric.Image.filters.Noise({ noise: newAdj.grain * 2.5 }) as any);
+      }
 
-    if (newAdj.brightness !== 0) {
-      filters.push(new fabric.Image.filters.Brightness({ brightness: newAdj.brightness / 200 }));
-    }
-    if (newAdj.contrast !== 0) {
-      filters.push(new fabric.Image.filters.Contrast({ contrast: newAdj.contrast / 100 }));
-    }
-    if (newAdj.saturation !== 0) {
-      filters.push(new fabric.Image.filters.Saturation({ saturation: newAdj.saturation / 100 }));
-    }
-    if (newAdj.exposure !== 0) {
-      filters.push(new fabric.Image.filters.Brightness({ brightness: newAdj.exposure / 400 }));
-    }
-    if (newAdj.temperature !== 0) {
-      const matrix = newAdj.temperature > 0
-        ? [1 + newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1 - newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0]
-        : [1 + newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1 - newAdj.temperature / 200, 0, 0, 0, 0, 0, 1, 0];
-      filters.push(new fabric.Image.filters.ColorMatrix({ matrix }));
-    }
-    if (newAdj.blur > 0) {
-      filters.push(new fabric.Image.filters.Blur({ blur: newAdj.blur / 10 }));
-    }
-    if (newAdj.grain > 0) {
-      filters.push(new fabric.Image.filters.Noise({ noise: newAdj.grain * 2.5 }) as any);
-    }
-
-    imgObj.filters = filters;
-    imgObj.applyFilters();
-    imgObj.set({ opacity: newAdj.opacity / 100 });
-    fabricCanvas.renderAll();
+      try {
+        imgObj.filters = filters;
+        imgObj.applyFilters();
+        imgObj.set({ opacity: newAdj.opacity / 100 });
+        fabricCanvas.requestRenderAll();
+      } catch (e) { console.warn('filter error', e); }
+    }, 80);
   }, [imgObj, fabricCanvas]);
 
   const handleChange = (key: keyof Adjustments, value: number) => {
