@@ -1,0 +1,28 @@
+{
+  "fps": 30,
+  "duration": 900,
+  "fade": 15,
+  "leak": 30,
+  "scenes": {
+    "hook": 105,
+    "tickets": 120,
+    "oldWay": 90,
+    "intro": 105,
+    "product": 210,
+    "resolved": 120,
+    "security": 135,
+    "outro": 90
+  },
+  "start": {
+    "hook": 0,
+    "tickets": 90,
+    "oldWay": 195,
+    "intro": 285,
+    "product": 375,
+    "resolved": 570,
+    "security": 675,
+    "outro": 810
+  },
+  "product": {"typing": [[60, "0"], [66, "09"]], "reveal": 118},
+  "security": {"step": 34}
+}

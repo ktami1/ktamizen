@@ -29,3 +29,19 @@ Negozi, tecnici e ticket sono inventati; il layout riprende quello di SysAid.
 ```bash
 npm run render:ticket   # out/password-operatori-ticket.mp4
 ```
+
+## Video di lancio 30 secondi (stile keynote, marchio Terya)
+
+Composizione `Launch` (1920x1080, 30 fps), costruita seguendo le skill ufficiali Remotion:
+una scena per file in `src/launch/`, `TransitionSeries` con dissolvenze, light leak arancioni
+(`@remotion/effects`, `hueShift` 20) sui due tagli principali, `Easing.bezier(0.16, 1, 0.3, 1)`.
+Ogni scena è registrata anche da sola (cartella `Launch-scene` in Studio).
+
+Scene: problema (10–15 richieste al giorno) → ticket SysAid da Italmark e Iperal → il file M_CTL →
+"Presentiamo" → prodotto (09, Mostra, 47) → ticket chiuso → sicurezza → chiusura.
+
+```bash
+npm run render:launch   # musica (scripts/sfx-launch.mjs) + out/password-operatori-launch.mp4
+```
+
+`remotion.config.ts` abilita WebGL (`angle`) per i light leak.
