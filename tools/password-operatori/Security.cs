@@ -217,11 +217,6 @@ namespace PasswordOperatori
         {
             if (pw == null || pw.Length < Config.MinPasswordLength)
                 return "La password deve avere almeno " + Config.MinPasswordLength + " caratteri.";
-            bool letter = false, digit = false;
-            foreach (char c in pw) { if (char.IsLetter(c)) letter = true; if (char.IsDigit(c)) digit = true; }
-            if (!letter || !digit) return "La password deve contenere lettere e numeri.";
-            if (name != null && pw.ToLowerInvariant().Contains(name.Trim().ToLowerInvariant()))
-                return "La password non può contenere il nome utente.";
             if (pw != confirm) return "Le due password non coincidono.";
             return null;
         }

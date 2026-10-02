@@ -29,7 +29,7 @@ namespace PasswordOperatori
         public const int RefreshMs = 3000;
 
         // Sicurezza
-        public const int MinPasswordLength = 10;
+        public const int MinPasswordLength = 5;
         public const int MaxFailures = 5;            // tentativi errati prima del blocco
         public const int LockoutMinutes = 5;         // durata del blocco (cresce a ogni serie di errori)
         public const int LockoutWindowMinutes = 15;  // finestra in cui contare gli errori

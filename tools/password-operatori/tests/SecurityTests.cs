@@ -19,10 +19,9 @@ static class Tests {
     Check(UserStore.Verify("anna", "sbagliata1") == null, "password sbagliata rifiutata");
     Check(UserStore.Verify("nessuno", "segreto12345") == null, "utente inesistente rifiutato");
     Check(!File.ReadAllText(Paths.Users).Contains("segreto"), "password non in chiaro nel file");
-    Check(UserStore.ValidatePassword("corta1", "corta1", "x") != null, "policy: troppo corta");
-    Check(UserStore.ValidatePassword("solamentelettere", "solamentelettere", "x") != null, "policy: servono numeri");
-    Check(UserStore.ValidatePassword("anna12345678", "anna12345678", "anna") != null, "policy: niente nome utente");
-    Check(UserStore.ValidatePassword("buona123456", "buona123456", "anna") == null, "policy: password valida");
+    Check(UserStore.ValidatePassword("abcd", "abcd", "x") != null, "policy: meno di 5 caratteri rifiutata");
+    Check(UserStore.ValidatePassword("abcde", "abcde", "anna") == null, "policy: 5 minuscole accettate");
+    Check(UserStore.ValidatePassword("abcde", "abcdf", "anna") != null, "policy: conferma diversa rifiutata");
     Session.User = a;
     for (int i = 0; i < 3; i++) Check(Audit.Write("PASSWORD_VIEW", "operatore 0609 | test\r\nriga"), "scrittura registro " + i);
     var c = Audit.Verify(); Check(c.Ok && c.Count == 3, "catena integra (" + c.Count + ")");

@@ -20,7 +20,7 @@ del punto vendita e, soprattutto, cosa **non** fa.
   l'amministratore crea il proprio account, poi un utente per ogni responsabile di cassa.
 - **Due ruoli.** *Responsabile*: cerca gli operatori e vede le password. *Amministratore*: in più
   gestisce gli utenti e consulta il registro.
-- **Password robuste.** Almeno 10 caratteri, con lettere e numeri, diverse dal nome utente.
+- **Password.** Almeno 5 caratteri.
 - **Password salvate in modo sicuro.** Solo come hash PBKDF2-HMAC-SHA256 con 200.000 iterazioni e
   sale casuale: nemmeno chi legge `users.dat` può risalire alle password.
 - **Blocco dei tentativi.** Dopo 5 accessi errati in 15 minuti l'accesso si blocca per 5 minuti

@@ -51,7 +51,7 @@ namespace PasswordOperatori
             user = AddInput("Nome utente amministratore", false, 186);
             pass = AddInput("Password", true, 280);
             confirm = AddInput("Conferma password", true, 374);
-            AddLabel("Almeno " + Config.MinPasswordLength + " caratteri, con lettere e numeri.", Theme.F(9f), Theme.Gray, 456, 22);
+            AddLabel("Almeno " + Config.MinPasswordLength + " caratteri.", Theme.F(9f), Theme.Gray, 456, 22);
             PlaceError(482);
             AddButton(recovery ? "Salva nuova password" : "Crea account", 530, delegate { Create(); });
             OnEnter(user, delegate { pass.Box.Focus(); });
@@ -145,7 +145,7 @@ namespace PasswordOperatori
                 Controls.Add(admin);
                 y += 36;
             }
-            AddLabel("Almeno " + Config.MinPasswordLength + " caratteri, con lettere e numeri.", Theme.F(9f), Theme.Gray, y, 22);
+            AddLabel("Almeno " + Config.MinPasswordLength + " caratteri.", Theme.F(9f), Theme.Gray, y, 22);
             PlaceError(y + 26);
             AddButton(existing == null ? "Crea utente" : "Salva password", y + 74, delegate { Save(); });
             if (name != null) OnEnter(name, delegate { pass.Box.Focus(); });
