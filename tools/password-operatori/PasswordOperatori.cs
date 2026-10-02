@@ -22,14 +22,20 @@ namespace PasswordOperatori
 {
     static class Config
     {
-        // Credenziali della responsabile (provvisorie).
-        public const string AdminUser = "admin";
-        public const string AdminPassword = "admin";
-
         public const string AppName = "Password Operatori";
+        public const string Version = "2.0";
         public const string FileName = "M_CTL999.DAT";
         public const string DefaultDir = @"C:\Server\Data";
         public const int RefreshMs = 3000;
+
+        // Sicurezza
+        public const int MinPasswordLength = 10;
+        public const int MaxFailures = 5;            // tentativi errati prima del blocco
+        public const int LockoutMinutes = 5;         // durata del blocco (cresce a ogni serie di errori)
+        public const int LockoutWindowMinutes = 15;  // finestra in cui contare gli errori
+        public const int IdleLockSeconds = 180;      // blocco automatico per inattivita'
+        public const int RevealSeconds = 30;         // la password resta visibile per questo tempo
+        public const long MaxFileBytes = 10 * 1024 * 1024;
     }
 
     // ---------------------------------------------------------------- dati
@@ -162,8 +168,17 @@ namespace PasswordOperatori
 
     static class MctlParser
     {
+        public static bool IsAllowedName(string path)
+        {
+            string n = (path ?? "").ToUpperInvariant();
+            n = n.Substring(Math.Max(n.LastIndexOf('\\'), n.LastIndexOf('/')) + 1);
+            return n.StartsWith("M_CTL") && n.EndsWith(".DAT");
+        }
+
         public static List<Operatore> Load(string path)
         {
+            if (!IsAllowedName(path)) throw new InvalidOperationException("Sono ammessi solo file M_CTL*.DAT.");
+            if (new FileInfo(path).Length > Config.MaxFileBytes) throw new InvalidOperationException("File troppo grande per essere un M_CTL.");
             List<Operatore> list = new List<Operatore>();
             // FileShare.ReadWrite: il file puo' essere aperto in scrittura dal gestionale.
             using (FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
@@ -172,6 +187,7 @@ namespace PasswordOperatori
                 string line;
                 while ((line = sr.ReadLine()) != null)
                 {
+                    if (line.Length > 1024) continue;
                     Operatore op = ParseLine(line);
                     if (op != null) list.Add(op);
                 }
@@ -563,6 +579,7 @@ namespace PasswordOperatori
     class HeaderBar : Canvas
     {
         public readonly PillButton RefreshButton = new PillButton("Aggiorna", PillStyle.OutlineLight);
+        public readonly PillButton UserButton = new PillButton("", PillStyle.Primary);
         string status = "";
 
         public HeaderBar()
@@ -570,8 +587,21 @@ namespace PasswordOperatori
             BackColor = Theme.Ink;
             RefreshButton.BackColor = Theme.Ink;
             RefreshButton.Font = Theme.F(9.5f, W.Bold);
-            RefreshButton.Size = new Size(Theme.S(112), Theme.S(38));
+            RefreshButton.Size = new Size(Theme.S(104), Theme.S(38));
             Controls.Add(RefreshButton);
+            UserButton.BackColor = Theme.Ink;
+            UserButton.Font = Theme.F(9.5f, W.Bold);
+            UserButton.Size = new Size(Theme.S(120), Theme.S(38));
+            Controls.Add(UserButton);
+        }
+
+        public void SetUser(string name)
+        {
+            UserButton.Text = name + "  ▾";
+            using (Graphics g = CreateGraphics())
+                UserButton.Width = Math.Min(Theme.S(220), Theme.Measure(g, UserButton.Text, UserButton.Font).Width + Theme.S(40));
+            PerformLayout();
+            Invalidate();
         }
 
         public string Status { get { return status; } set { status = value; Invalidate(); } }
@@ -579,7 +609,8 @@ namespace PasswordOperatori
         protected override void OnLayout(LayoutEventArgs e)
         {
             base.OnLayout(e);
-            RefreshButton.Location = new Point(Width - Theme.S(28) - RefreshButton.Width, (Height - RefreshButton.Height) / 2);
+            UserButton.Location = new Point(Width - Theme.S(28) - UserButton.Width, (Height - UserButton.Height) / 2);
+            RefreshButton.Location = new Point(UserButton.Left - Theme.S(10) - RefreshButton.Width, (Height - RefreshButton.Height) / 2);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -702,13 +733,23 @@ namespace PasswordOperatori
         Operatore op;
         string message;
         Rectangle pwRect;
-        bool pwHover, copied;
-        readonly Timer copyTimer = new Timer();
+        bool pwHover, copied, revealed;
+        DateTime revealedUntil;
+        readonly Timer tick = new Timer();
+
+        // La password e' nascosta finche' non viene chiesta: ogni visualizzazione passa dal registro.
+        public event EventHandler RevealRequested;
+        public event EventHandler CopyRequested;
+        public event EventHandler Concealed;
 
         public ResultCard()
         {
-            copyTimer.Interval = 1800;
-            copyTimer.Tick += delegate { copyTimer.Stop(); copied = false; Invalidate(); };
+            tick.Interval = 1000;
+            tick.Tick += delegate
+            {
+                if (revealed && DateTime.Now >= revealedUntil) Conceal();
+                else Invalidate();
+            };
         }
 
         public Operatore Operatore
@@ -716,11 +757,34 @@ namespace PasswordOperatori
             get { return op; }
             set
             {
-                if (op == null || value == null || op.Codice != value.Codice) copied = false;
+                if (op == null || value == null || op.Codice != value.Codice) Conceal();
                 op = value;
                 Invalidate();
             }
         }
+
+        public bool Revealed { get { return revealed; } }
+
+        public void Reveal()
+        {
+            revealed = true;
+            copied = false;
+            revealedUntil = DateTime.Now.AddSeconds(Config.RevealSeconds);
+            tick.Start();
+            Invalidate();
+        }
+
+        public void Conceal()
+        {
+            bool was = revealed;
+            revealed = false;
+            copied = false;
+            tick.Stop();
+            Invalidate();
+            if (was && Concealed != null) Concealed(this, EventArgs.Empty);
+        }
+
+        public void ShowCopied() { copied = true; Invalidate(); }
 
         public string Message { get { return message; } set { message = value; Invalidate(); } }
 
@@ -769,7 +833,9 @@ namespace PasswordOperatori
             Font pf = Theme.F(24f, W.Bold);
             string pre = "La password dell'operatore " + op.CodiceBreve + " è";
             Size ps = Theme.Measure(g, pre, hf);
-            Size pws = Theme.Measure(g, op.Password, pf);
+            string shown = revealed ? op.Password : "Mostra";
+            if (!revealed) pf = Theme.F(13f, W.Bold);
+            Size pws = Theme.Measure(g, shown, pf);
             int pillH = Theme.S(58);
             int pillW = Math.Max(pws.Width + Theme.S(48), Theme.S(100));
             if (ps.Width + Theme.S(16) + pillW > w)
@@ -779,17 +845,29 @@ namespace PasswordOperatori
             }
             Theme.Text(g, pre, hf, new Rectangle(x, y, ps.Width + 2, pillH), Theme.Ink, 0);
             pwRect = new Rectangle(x + ps.Width + Theme.S(16), y, pillW, pillH);
-            Theme.FillRound(g, pwHover ? Theme.AccentDark : Theme.Accent, pwRect, pillH / 2f);
-            TextRenderer.DrawText(g, op.Password, pf, pwRect, Color.White,
+            if (revealed) Theme.FillRound(g, pwHover ? Theme.AccentDark : Theme.Accent, pwRect, pillH / 2f);
+            else
+            {
+                RectangleF pr = new RectangleF(pwRect.X + 1, pwRect.Y + 1, pwRect.Width - 2, pwRect.Height - 2);
+                Theme.FillRound(g, pwHover ? Theme.AccentSoft : Theme.Surface, pr, pr.Height / 2f);
+                Theme.StrokeRound(g, Theme.Accent, 2f, pr, pr.Height / 2f);
+            }
+            TextRenderer.DrawText(g, shown, pf, pwRect, revealed ? Color.White : Theme.Accent,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
-            int hintX = pwRect.Right + Theme.S(14);
-            if (hintX < x + w)
-                Theme.Text(g, copied ? "Copiata ✓" : (pwHover ? "Clic per copiare" : ""), Theme.F(9f, copied ? W.Bold : W.Regular),
-                    new Rectangle(hintX, y, x + w - hintX, pillH), copied ? Theme.GreenText : Theme.Gray, 0);
             y += pillH + Theme.S(14);
 
             // riga 3: messaggio di stato
             Theme.Text(g, op.Messaggio, Theme.F(13f, W.Medium), new Rectangle(x, y, w, Theme.S(30)), op.TextColor, 0);
+            string hint;
+            if (!revealed) hint = "Ogni visualizzazione viene registrata";
+            else
+            {
+                int left = Math.Max(0, (int)Math.Ceiling((revealedUntil - DateTime.Now).TotalSeconds));
+                hint = (copied ? "Copiata \u2713" : "Clic sulla password per copiarla") + "  ·  si nasconde tra " + left + " s";
+            }
+            Size ms = Theme.Measure(g, op.Messaggio, Theme.F(13f, W.Medium));
+            Theme.Text(g, hint, Theme.F(9f, copied ? W.Bold : W.Regular), new Rectangle(x + ms.Width + Theme.S(16), y, w - ms.Width - Theme.S(16), Theme.S(30)),
+                copied ? Theme.GreenText : Theme.Gray, TextFormatFlags.Right);
             y += Theme.S(30) + Theme.S(20);
 
             using (Pen p = new Pen(Theme.Divider)) g.DrawLine(p, x, y, x + w, y);
@@ -825,11 +903,8 @@ namespace PasswordOperatori
         {
             base.OnMouseClick(e);
             if (op == null || message != null || !pwRect.Contains(e.Location)) return;
-            try { Clipboard.SetText(op.Password); } catch { return; }
-            copied = true;
-            copyTimer.Stop();
-            copyTimer.Start();
-            Invalidate();
+            if (!revealed) { if (RevealRequested != null) RevealRequested(this, EventArgs.Empty); }
+            else if (CopyRequested != null) CopyRequested(this, EventArgs.Empty);
         }
     }
 
@@ -920,7 +995,7 @@ namespace PasswordOperatori
 
         public event EventHandler ChangeFile;
 
-        public string Path { get { return path; } set { path = value; Invalidate(); } }
+        public string FilePath { get { return path; } set { path = value; Invalidate(); } }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -950,7 +1025,13 @@ namespace PasswordOperatori
 
     class BrandPanel : Canvas
     {
-        public BrandPanel() { BackColor = Theme.Ink; }
+        readonly string claim;
+
+        public BrandPanel(string claim)
+        {
+            BackColor = Theme.Ink;
+            this.claim = claim;
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -970,77 +1051,53 @@ namespace PasswordOperatori
             Theme.Dot(g, Theme.Accent, pad + s2.Width + Theme.S(6) + d / 2, y + s2.Height - d * 0.95f, d);
             y += s2.Height + Theme.S(26);
 
-            TextRenderer.DrawText(g, "Accesso riservato alla responsabile di cassa.", Theme.F(11.5f),
-                new Rectangle(pad, y, Width - 2 * pad, Theme.S(70)), Color.FromArgb(160, Color.White), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
+            TextRenderer.DrawText(g, claim, Theme.F(11.5f), new Rectangle(pad, y, Width - 2 * pad, Theme.S(90)),
+                Color.FromArgb(160, Color.White), TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix);
 
-            Theme.Text(g, "Legge " + Config.FileName + " in sola lettura.", Theme.F(9f),
-                new Rectangle(pad, Height - pad - Theme.S(20), Width - 2 * pad, Theme.S(20)), Color.FromArgb(110, Color.White), 0);
+            string[] facts = { "Sola lettura del file " + Config.FileName, "Nessuna connessione di rete", "Ogni accesso viene registrato" };
+            int fy = Height - pad - facts.Length * Theme.S(26);
+            foreach (string f in facts)
+            {
+                Theme.Dot(g, Theme.Accent, pad + Theme.S(4), fy + Theme.S(11), Theme.S(6));
+                Theme.Text(g, f, Theme.F(9.5f), new Rectangle(pad + Theme.S(18), fy, Width - 2 * pad, Theme.S(22)), Color.FromArgb(150, Color.White), 0);
+                fy += Theme.S(26);
+            }
         }
     }
 
-    class LoginForm : Form
+    // Finestra a due colonne: marchio a sinistra, modulo a destra (accesso, configurazione, utenti).
+    class SplitForm : Form
     {
-        readonly InputBox user = new InputBox("admin", false, false, 12f);
-        readonly InputBox pass = new InputBox("••••••", true, false, 12f);
-        readonly Label err = new Label();
+        protected readonly int X, Wd;
+        protected readonly Label Error = new Label();
 
-        public LoginForm()
+        public SplitForm(string title, string claim, int height)
         {
             AutoScaleMode = AutoScaleMode.None;
-            Text = Config.AppName + " · Accesso";
+            Text = Config.AppName + " · " + title;
             Icon = Theme.AppIcon();
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
+            MinimizeBox = false;
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Theme.Bg;
             Font = Theme.F(10f);
-            ClientSize = new Size(Theme.S(880), Theme.S(540));
+            ClientSize = new Size(Theme.S(880), Theme.S(height));
 
-            BrandPanel brand = new BrandPanel();
+            BrandPanel brand = new BrandPanel(claim);
             brand.Bounds = new Rectangle(0, 0, Theme.S(380), ClientSize.Height);
             Controls.Add(brand);
 
-            int x = brand.Width + Theme.S(68);
-            int w = ClientSize.Width - x - Theme.S(68);
+            X = brand.Width + Theme.S(68);
+            Wd = ClientSize.Width - X - Theme.S(68);
 
-            AddLabel("Accedi", Theme.F(24f, W.Bold), Theme.Ink, new Rectangle(x, Theme.S(92), w, Theme.S(48)));
-            AddLabel("Inserisci le credenziali per continuare.", Theme.F(10.5f), Theme.Gray, new Rectangle(x, Theme.S(142), w, Theme.S(26)));
-
-            AddLabel("Utente", Theme.F(9f, W.Bold), Theme.GrayDark, new Rectangle(x + Theme.S(4), Theme.S(196), w, Theme.S(22)));
-            user.BackColor = Theme.Bg;
-            user.Bounds = new Rectangle(x, Theme.S(222), w, Theme.S(54));
-            Controls.Add(user);
-
-            AddLabel("Password", Theme.F(9f, W.Bold), Theme.GrayDark, new Rectangle(x + Theme.S(4), Theme.S(292), w, Theme.S(22)));
-            pass.BackColor = Theme.Bg;
-            pass.Bounds = new Rectangle(x, Theme.S(318), w, Theme.S(54));
-            Controls.Add(pass);
-
-            err.ForeColor = Theme.RedText;
-            err.BackColor = Theme.Bg;
-            err.Font = Theme.F(9.5f, W.Medium);
-            err.Bounds = new Rectangle(x + Theme.S(4), Theme.S(382), w, Theme.S(24));
-            Controls.Add(err);
-
-            PillButton ok = new PillButton("Accedi", PillStyle.Primary);
-            ok.BackColor = Theme.Bg;
-            ok.Font = Theme.F(12f, W.Bold);
-            ok.Bounds = new Rectangle(x, Theme.S(420), w, Theme.S(56));
-            ok.Click += delegate { TryLogin(); };
-            Controls.Add(ok);
-
-            user.Box.KeyDown += delegate(object s, KeyEventArgs e)
-            {
-                if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; pass.Box.Focus(); }
-            };
-            pass.Box.KeyDown += delegate(object s, KeyEventArgs e)
-            {
-                if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; TryLogin(); }
-            };
-            Shown += delegate { user.Box.Focus(); };
+            Error.ForeColor = Theme.RedText;
+            Error.BackColor = Theme.Bg;
+            Error.Font = Theme.F(9.5f, W.Medium);
+            Error.UseMnemonic = false;
         }
 
-        void AddLabel(string text, Font font, Color color, Rectangle bounds)
+        protected Label AddLabel(string text, Font font, Color color, int y, int h)
         {
             Label l = new Label();
             l.Text = text;
@@ -1048,20 +1105,120 @@ namespace PasswordOperatori
             l.ForeColor = color;
             l.BackColor = Theme.Bg;
             l.UseMnemonic = false;
-            l.Bounds = bounds;
+            l.Bounds = new Rectangle(X, Theme.S(y), Wd, Theme.S(h));
             Controls.Add(l);
+            return l;
+        }
+
+        protected void AddTitle(string title, string sub)
+        {
+            AddLabel(title, Theme.F(24f, W.Bold), Theme.Ink, 72, 48);
+            AddLabel(sub, Theme.F(10.5f), Theme.Gray, 122, 46);
+        }
+
+        protected InputBox AddInput(string label, bool password, int y)
+        {
+            Label l = AddLabel(label, Theme.F(9f, W.Bold), Theme.GrayDark, y, 22);
+            l.Left += Theme.S(4);
+            InputBox box = new InputBox("", password, false, 12f);
+            box.BackColor = Theme.Bg;
+            box.Bounds = new Rectangle(X, Theme.S(y + 26), Wd, Theme.S(52));
+            Controls.Add(box);
+            return box;
+        }
+
+        protected void PlaceError(int y)
+        {
+            Error.Bounds = new Rectangle(X + Theme.S(4), Theme.S(y), Wd, Theme.S(40));
+            Controls.Add(Error);
+        }
+
+        protected PillButton AddButton(string text, int y, EventHandler click)
+        {
+            PillButton b = new PillButton(text, PillStyle.Primary);
+            b.BackColor = Theme.Bg;
+            b.Font = Theme.F(12f, W.Bold);
+            b.Bounds = new Rectangle(X, Theme.S(y), Wd, Theme.S(56));
+            b.Click += click;
+            Controls.Add(b);
+            return b;
+        }
+
+        protected static void OnEnter(InputBox box, Action action)
+        {
+            box.Box.KeyDown += delegate(object s, KeyEventArgs e)
+            {
+                if (e.KeyCode == Keys.Enter) { e.SuppressKeyPress = true; action(); }
+            };
+        }
+    }
+
+    class LoginForm : SplitForm
+    {
+        readonly InputBox user;
+        readonly InputBox pass;
+        public AppUser User;
+
+        public LoginForm(bool locked)
+            : base(locked ? "Sessione bloccata" : "Accesso", "Accesso riservato alle responsabili di cassa autorizzate.", 560)
+        {
+            if (locked)
+                AddTitle("Sessione bloccata", "Bloccata per inattività. Accedi di nuovo per continuare.");
+            else
+                AddTitle("Accedi", "Inserisci le credenziali per continuare.");
+            user = AddInput("Utente", false, 196);
+            pass = AddInput("Password", true, 290);
+            PlaceError(372);
+            AddButton("Accedi", 420, delegate { TryLogin(); });
+            if (locked && Session.User != null) user.Box.Text = Session.User.Name;
+
+            OnEnter(user, delegate { pass.Box.Focus(); });
+            OnEnter(pass, TryLogin);
+            Shown += delegate { if (user.Box.Text.Length > 0) pass.Box.Focus(); else user.Box.Focus(); };
         }
 
         void TryLogin()
         {
-            if (user.Box.Text.Trim() == Config.AdminUser && pass.Box.Text == Config.AdminPassword)
+            DateTime until = Audit.LockedUntil();
+            if (DateTime.Now < until)
             {
-                DialogResult = DialogResult.OK;
+                int min = Math.Max(1, (int)Math.Ceiling((until - DateTime.Now).TotalMinutes));
+                Error.Text = "Troppi tentativi errati. Riprova tra " + min + (min == 1 ? " minuto." : " minuti.");
+                pass.Box.Clear();
                 return;
             }
-            err.Text = "Utente o password non corretti.";
+
+            string name = user.Box.Text.Trim();
+            string pw = pass.Box.Text;
             pass.Box.Clear();
-            pass.Box.Focus();
+            Cursor = Cursors.WaitCursor;
+            AppUser u;
+            try { u = UserStore.Verify(name, pw); }
+            finally { Cursor = Cursors.Default; }
+
+            if (u == null)
+            {
+                AppUser prev = Session.User;
+                Session.User = null;
+                Audit.Write("LOGIN_FAIL", "utente “" + (name.Length > 32 ? name.Substring(0, 32) : name) + "”");
+                Session.User = prev;
+                until = Audit.LockedUntil();
+                Error.Text = DateTime.Now < until
+                    ? "Troppi tentativi errati: accesso bloccato per " + Config.LockoutMinutes + " minuti."
+                    : "Utente o password non corretti.";
+                pass.Box.Focus();
+                return;
+            }
+
+            Session.User = u;
+            if (!Audit.Write("LOGIN_OK", u.Role))
+            {
+                Session.User = null;
+                Error.Text = "Registro accessi non scrivibile: accesso negato. Contatta l'assistenza.";
+                return;
+            }
+            User = u;
+            DialogResult = DialogResult.OK;
         }
     }
 
@@ -1077,6 +1234,10 @@ namespace PasswordOperatori
         readonly OperatorList list = new OperatorList();
         readonly FooterBar footer = new FooterBar();
         readonly Timer timer = new Timer();
+        readonly Timer idleTimer = new Timer();
+        readonly ActivityFilter activity = new ActivityFilter();
+        readonly ContextMenuStrip userMenu = new ContextMenuStrip();
+        bool locked, closingLogged;
 
         List<Operatore> all = new List<Operatore>();
         string filePath;
@@ -1101,6 +1262,14 @@ namespace PasswordOperatori
             header.Dock = DockStyle.Top;
             header.Height = Theme.S(76);
             header.RefreshButton.Click += delegate { Reload(true, true); };
+            header.UserButton.Click += delegate { BuildUserMenu(); userMenu.Show(header.UserButton, new Point(0, header.UserButton.Height + Theme.S(4))); };
+            header.SetUser(Session.User.Name);
+            userMenu.Font = Theme.F(10f);
+            userMenu.ShowImageMargin = false;
+
+            card.RevealRequested += delegate { RevealPassword(); };
+            card.CopyRequested += delegate { CopyPassword(); };
+            card.Concealed += delegate { ClearClipboardIfOurs(); };
 
             Panel body = new Panel();
             body.Dock = DockStyle.Fill;
@@ -1159,8 +1328,125 @@ namespace PasswordOperatori
             timer.Interval = Config.RefreshMs;
             timer.Tick += delegate { Reload(false, true); };
 
-            Load += delegate { Reload(true, false); timer.Start(); };
+            Application.AddMessageFilter(activity);
+            idleTimer.Interval = 1000;
+            idleTimer.Tick += delegate
+            {
+                if (!locked && (DateTime.Now - activity.Last).TotalSeconds >= Config.IdleLockSeconds) LockSession("inattività");
+            };
+
+            Load += delegate { Reload(true, false); timer.Start(); idleTimer.Start(); };
             Shown += delegate { search.Box.Focus(); };
+            FormClosed += delegate
+            {
+                Application.RemoveMessageFilter(activity);
+                ClearClipboardIfOurs();
+                if (!closingLogged) Audit.Write("LOGOUT", "chiusura del programma");
+            };
+        }
+
+        // ---- sicurezza
+
+        string clipboardValue;
+
+        void RevealPassword()
+        {
+            Operatore op = card.Operatore;
+            if (op == null) return;
+            if (!Audit.Write("PASSWORD_VIEW", "operatore " + op.Codice + " (" + op.Nome + ") · " + op.StatoBreve))
+            {
+                MessageBox.Show(this, "Il registro accessi non è scrivibile, quindi la password non può essere mostrata.\n\nContatta l'assistenza.",
+                    Config.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            card.Reveal();
+        }
+
+        void CopyPassword()
+        {
+            Operatore op = card.Operatore;
+            if (op == null || !card.Revealed) return;
+            if (!Audit.Write("PASSWORD_COPY", "operatore " + op.Codice)) return;
+            try
+            {
+                Clipboard.SetText(op.Password);
+                clipboardValue = op.Password;
+                card.ShowCopied();
+            }
+            catch { }
+        }
+
+        // Quando la password si nasconde, la si toglie anche dagli appunti (se e' ancora li').
+        void ClearClipboardIfOurs()
+        {
+            if (clipboardValue == null) return;
+            try { if (Clipboard.ContainsText() && Clipboard.GetText() == clipboardValue) Clipboard.Clear(); }
+            catch { }
+            clipboardValue = null;
+        }
+
+        void LockSession(string reason)
+        {
+            if (locked) return;
+            locked = true;
+            card.Conceal();
+            Audit.Write("LOCK", reason);
+            using (LoginForm lf = new LoginForm(true))
+            {
+                if (lf.ShowDialog(this) != DialogResult.OK)
+                {
+                    Audit.Write("LOGOUT", "sessione bloccata non riaperta");
+                    closingLogged = true;
+                    Close();
+                    return;
+                }
+            }
+            header.SetUser(Session.User.Name);
+            activity.Last = DateTime.Now;
+            locked = false;
+            search.Box.Focus();
+        }
+
+        void BuildUserMenu()
+        {
+            userMenu.Items.Clear();
+            ToolStripMenuItem who = new ToolStripMenuItem(Session.User.Name + " · " + Session.User.Role);
+            who.Enabled = false;
+            userMenu.Items.Add(who);
+            userMenu.Items.Add(new ToolStripSeparator());
+            if (Session.User.Admin)
+            {
+                userMenu.Items.Add("Gestione utenti", null, delegate { OpenUsers(); });
+                userMenu.Items.Add("Registro accessi", null, delegate { OpenAudit(); });
+            }
+            userMenu.Items.Add("Informazioni e sicurezza", null, delegate { using (InfoForm f = new InfoForm(filePath)) f.ShowDialog(this); });
+            userMenu.Items.Add(new ToolStripSeparator());
+            userMenu.Items.Add("Blocca ora", null, delegate { LockSession("blocco manuale"); });
+            userMenu.Items.Add("Esci", null, delegate { Audit.Write("LOGOUT", "uscita"); closingLogged = true; Close(); });
+        }
+
+        void OpenUsers()
+        {
+            if (!Win.IsElevated())
+            {
+                DialogResult r = MessageBox.Show(this,
+                    "La gestione utenti richiede i privilegi di amministratore di Windows.\n\nRiavviare il programma come amministratore?",
+                    Config.AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                if (r == DialogResult.Yes && Win.RelaunchElevated(""))
+                {
+                    Audit.Write("LOGOUT", "riavvio come amministratore");
+                    closingLogged = true;
+                    Close();
+                }
+                return;
+            }
+            using (UsersForm f = new UsersForm()) f.ShowDialog(this);
+        }
+
+        void OpenAudit()
+        {
+            Audit.Write("AUDIT_VIEW", "consultazione del registro");
+            using (AuditForm f = new AuditForm()) f.ShowDialog(this);
         }
 
         static Panel Spacer(int h)
@@ -1180,7 +1466,7 @@ namespace PasswordOperatori
 
         static string ResolvePath(string arg)
         {
-            if (!string.IsNullOrEmpty(arg) && File.Exists(arg)) return System.IO.Path.GetFullPath(arg);
+            if (!string.IsNullOrEmpty(arg) && File.Exists(arg) && MctlParser.IsAllowedName(arg)) return System.IO.Path.GetFullPath(arg);
             string exeDir = AppDomain.CurrentDomain.BaseDirectory;
             string[] dirs = { Config.DefaultDir, exeDir };
             foreach (string dir in dirs)
@@ -1215,7 +1501,14 @@ namespace PasswordOperatori
                 catch { }
                 if (dlg.ShowDialog(this) == DialogResult.OK)
                 {
+                    if (!MctlParser.IsAllowedName(dlg.FileName))
+                    {
+                        MessageBox.Show(this, "Sono ammessi solo file M_CTL*.DAT.", Config.AppName, MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        return;
+                    }
+                    Audit.Write("FILE_CHANGE", dlg.FileName);
                     filePath = dlg.FileName;
+                    lastSize = -1;
                     Reload(true, false);
                 }
             }
@@ -1223,7 +1516,7 @@ namespace PasswordOperatori
 
         void Reload(bool force, bool keepScroll)
         {
-            footer.Path = filePath;
+            footer.FilePath = filePath;
             if (!File.Exists(filePath))
             {
                 all = new List<Operatore>();
@@ -1353,11 +1646,32 @@ namespace PasswordOperatori
             using (Graphics g = Graphics.FromHwnd(IntPtr.Zero)) Theme.Scale = Math.Max(1f, g.DpiX / 96f);
             Fonts.Load();
 
-            using (LoginForm login = new LoginForm())
+            string fileArg = null;
+            foreach (string a in args) if (!a.StartsWith("--")) fileArg = a;
+
+            // Prima esecuzione: va creato l'amministratore, con i privilegi di Windows.
+            if (!UserStore.Exists)
+            {
+                if (!Win.IsElevated())
+                {
+                    DialogResult r = MessageBox.Show(
+                        "Prima configurazione di " + Config.AppName + ".\n\nServono i privilegi di amministratore di Windows per creare " +
+                        "la cartella protetta dei dati. Riavviare come amministratore?",
+                        Config.AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    if (r == DialogResult.Yes) Win.RelaunchElevated("--setup");
+                    return;
+                }
+                using (SetupForm setup = new SetupForm())
+                {
+                    if (setup.ShowDialog() != DialogResult.OK) return;
+                }
+            }
+
+            using (LoginForm login = new LoginForm(false))
             {
                 if (login.ShowDialog() != DialogResult.OK) return;
             }
-            Application.Run(new MainForm(args.Length > 0 ? args[0] : null));
+            Application.Run(new MainForm(fileArg));
         }
     }
 }

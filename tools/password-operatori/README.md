@@ -8,22 +8,36 @@ Grafica secondo il design system Terya (fondo #F2F2F2, nero #020609, accento #EC
 
 ![accesso](screenshot-login.png)
 
+![registro](screenshot-registro.png)
+
 ## Uso
 
-1. Copiare `PasswordOperatori.exe` sul server del punto vendita.
-2. Avviarlo e accedere con **admin / admin**.
-3. Digitare il codice dell'operatore (es. `609`) o parte del nome.
+1. Copiare `PasswordOperatori.exe` sul server (consigliato: `C:\Program Files\PasswordOperatori\`).
+2. **Prima volta:** avviarlo con *Esegui come amministratore* e creare l'account amministratore.
+3. Dal menu utente → *Gestione utenti*, creare un utente per ogni responsabile.
+4. Le responsabili accedono con il proprio utente e digitano il codice operatore (es. `609`).
 
 Risultato, ad esempio:
 
-> La password dell'operatore 609 è **09** — Risulta aperto in cassa 24
+> La password dell'operatore 609 è **[Mostra]** — Risulta aperto in cassa 24
 
+- Clic su **Mostra**: la password compare per 30 secondi e la visualizzazione viene registrata.
+  Un secondo clic la copia negli appunti, che vengono ripuliti quando si nasconde.
 - LED **verde** aperto, **giallo-arancio** in pausa, **rosso** chiuso, grigio non ancora aperto.
 - Cassa, data, ora di apertura e ora di chiusura.
-- Clic sulla password per copiarla negli appunti.
 - Filtri rapidi: Tutti, Aperti, In pausa, Chiusi (con il conteggio).
 - Scorciatoie: `Ctrl+F` cerca, `F5` aggiorna, `Esc` svuota la ricerca, `Invio`/`↓` vanno all'elenco.
 - Il file viene riletto automaticamente ogni 3 secondi.
+
+## Sicurezza
+
+Dettagli completi, da girare ai clienti: [SICUREZZA.md](SICUREZZA.md).
+
+- Il file del gestionale si apre **solo in lettura**. Il programma scrive solo in `%ProgramData%\PasswordOperatori`.
+- **Nessuna connessione di rete.**
+- Utenti personali con ruoli (responsabile, amministratore). Password salvate come hash PBKDF2-SHA256.
+- Blocco dopo 5 tentativi errati e blocco automatico dopo 3 minuti di inattività.
+- **Registro accessi** a catena di hash, protetto dai permessi NTFS (gli utenti possono solo aggiungere righe).
 
 Il file viene cercato in quest'ordine:
 1. percorso passato da riga di comando (`PasswordOperatori.exe D:\altro\M_CTL999.DAT`);
@@ -59,7 +73,8 @@ Fare doppio clic su `build.bat`: usa il `csc.exe` presente in
 `C:\Windows\Microsoft.NET\Framework\v4.0.30319\` e genera `PasswordOperatori.exe`,
 con il font Roboto (cartella `fonts`, licenza Apache 2.0) e l'icona incorporati.
 
-Le credenziali (`admin`/`admin`), il percorso predefinito e l'intervallo di aggiornamento
-sono in cima a `PasswordOperatori.cs`, nella classe `Config`.
+Il codice è diviso in tre file: `PasswordOperatori.cs` (interfaccia), `Security.cs` (utenti, hash, registro,
+permessi) e `AdminForms.cs` (configurazione, utenti, registro). Percorso predefinito, tempi di blocco e
+regole delle password sono nella classe `Config`. Al termine `build.bat` stampa l'impronta SHA-256 dell'exe.
 
 In `esempio/M_CTL999.DAT` c'è un file di prova.
