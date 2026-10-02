@@ -29,6 +29,17 @@ Risultato, ad esempio:
 - Scorciatoie: `Ctrl+F` cerca, `F5` aggiorna, `Esc` svuota la ricerca, `Invio`/`↓` vanno all'elenco.
 - Il file viene riletto automaticamente ogni 3 secondi.
 
+## Password dimenticata
+
+La password non si può leggere (è salvata solo come hash), ma si può reimpostare:
+
+- **Responsabile:** un amministratore la reimposta da menu utente → *Gestione utenti* → *Nuova password*.
+- **Amministratore:** nella schermata di accesso, *Password dimenticata?* → il programma si riavvia come
+  amministratore di Windows e permette di scegliere una nuova password. In alternativa:
+  tasto destro sull'exe → *Esegui come amministratore* con il parametro `--recupero`
+  (`PasswordOperatori.exe --recupero`). Gli altri utenti restano invariati e l'operazione
+  finisce nel registro (`ADMIN_RESET`).
+
 ## Sicurezza
 
 Dettagli completi, da girare ai clienti: [SICUREZZA.md](SICUREZZA.md).

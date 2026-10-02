@@ -27,6 +27,9 @@ del punto vendita e, soprattutto, cosa **non** fa.
   (il blocco si allunga se gli errori continuano). Il conteggio si basa sul registro, che non può
   essere cancellato da un utente normale.
 
+- **Recupero password amministratore.** Possibile solo con i privilegi di amministratore di Windows
+  sul server (`PasswordOperatori.exe --recupero`). Registrato come `ADMIN_RESET`.
+
 ## Durante l'uso
 
 - **Password nascosta.** La password di un operatore compare solo dopo un clic su "Mostra"

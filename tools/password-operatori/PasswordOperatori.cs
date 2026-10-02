@@ -1172,9 +1172,32 @@ namespace PasswordOperatori
             AddButton("Accedi", 420, delegate { TryLogin(); });
             if (locked && Session.User != null) user.Box.Text = Session.User.Name;
 
+            Label forgot = new Label();
+            forgot.Text = "Password dimenticata?";
+            forgot.Font = Theme.F(9.5f, W.Bold);
+            forgot.ForeColor = Theme.Accent;
+            forgot.BackColor = Theme.Bg;
+            forgot.AutoSize = true;
+            forgot.Cursor = Cursors.Hand;
+            forgot.Location = new Point(X + Theme.S(4), Theme.S(490));
+            forgot.Click += delegate { Forgot(); };
+            Controls.Add(forgot);
+
             OnEnter(user, delegate { pass.Box.Focus(); });
             OnEnter(pass, TryLogin);
             Shown += delegate { if (user.Box.Text.Length > 0) pass.Box.Focus(); else user.Box.Focus(); };
+        }
+
+        void Forgot()
+        {
+            DialogResult r = MessageBox.Show(this,
+                "La password non si può leggere: si può solo reimpostare.\n\n" +
+                "• Responsabile: chiedi a un amministratore (menu utente → Gestione utenti → Nuova password).\n" +
+                "• Amministratore: serve un account amministratore di Windows su questo server.\n\n" +
+                "Riavviare ora il programma come amministratore di Windows per reimpostare la password amministratore?",
+                Config.AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (r != DialogResult.Yes) return;
+            if (Win.RelaunchElevated("--recupero")) DialogResult = DialogResult.Cancel;
         }
 
         void TryLogin()
@@ -1649,6 +1672,25 @@ namespace PasswordOperatori
             string fileArg = null;
             foreach (string a in args) if (!a.StartsWith("--")) fileArg = a;
 
+            bool recovery = Array.IndexOf(args, "--recupero") >= 0;
+
+            // Password dimenticata: solo un amministratore di Windows puo' reimpostarla.
+            if (recovery && UserStore.Exists)
+            {
+                if (!Win.IsElevated())
+                {
+                    DialogResult r = MessageBox.Show(
+                        "Il recupero della password amministratore richiede i privilegi di amministratore di Windows.\n\nRiavviare come amministratore?",
+                        Config.AppName, MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+                    if (r == DialogResult.Yes) Win.RelaunchElevated("--recupero");
+                    return;
+                }
+                using (SetupForm reset = new SetupForm(true))
+                {
+                    if (reset.ShowDialog() != DialogResult.OK) return;
+                }
+            }
+
             // Prima esecuzione: va creato l'amministratore, con i privilegi di Windows.
             if (!UserStore.Exists)
             {
@@ -1661,7 +1703,7 @@ namespace PasswordOperatori
                     if (r == DialogResult.Yes) Win.RelaunchElevated("--setup");
                     return;
                 }
-                using (SetupForm setup = new SetupForm())
+                using (SetupForm setup = new SetupForm(false))
                 {
                     if (setup.ShowDialog() != DialogResult.OK) return;
                 }

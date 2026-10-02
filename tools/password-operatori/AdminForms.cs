@@ -35,17 +35,25 @@ namespace PasswordOperatori
     class SetupForm : SplitForm
     {
         readonly InputBox user, pass, confirm;
+        readonly bool recovery;
 
-        public SetupForm()
-            : base("Configurazione iniziale", "Prima configurazione su questo server. Crea l'account amministratore.", 640)
+        // recovery = true: nuova password per un amministratore (password dimenticata), gli altri utenti restano.
+        public SetupForm(bool recovery)
+            : base(recovery ? "Recupero amministratore" : "Configurazione iniziale",
+                   recovery ? "Recupero dell'accesso amministratore. Possibile solo con i privilegi di amministratore di Windows."
+                            : "Prima configurazione su questo server. Crea l'account amministratore.", 640)
         {
-            AddTitle("Configurazione iniziale", "L'amministratore gestisce le responsabili e consulta il registro accessi.");
+            this.recovery = recovery;
+            if (recovery)
+                AddTitle("Recupero accesso", "Scrivi il nome dell'amministratore e scegli una nuova password. Gli altri utenti restano invariati.");
+            else
+                AddTitle("Configurazione iniziale", "L'amministratore gestisce le responsabili e consulta il registro accessi.");
             user = AddInput("Nome utente amministratore", false, 186);
             pass = AddInput("Password", true, 280);
             confirm = AddInput("Conferma password", true, 374);
             AddLabel("Almeno " + Config.MinPasswordLength + " caratteri, con lettere e numeri.", Theme.F(9f), Theme.Gray, 456, 22);
             PlaceError(482);
-            AddButton("Crea account", 530, delegate { Create(); });
+            AddButton(recovery ? "Salva nuova password" : "Crea account", 530, delegate { Create(); });
             OnEnter(user, delegate { pass.Box.Focus(); });
             OnEnter(pass, delegate { confirm.Box.Focus(); });
             OnEnter(confirm, Create);
@@ -60,10 +68,27 @@ namespace PasswordOperatori
             {
                 Cursor = Cursors.WaitCursor;
                 Win.SecureDataFolder();
-                AppUser admin = UserStore.Create(user.Box.Text, pass.Box.Text, true);
-                UserStore.Save(new List<AppUser> { admin });
-                Session.User = admin;
-                Audit.Write("SETUP", "creato l'amministratore " + admin.Name);
+                AppUser admin;
+                if (recovery)
+                {
+                    List<AppUser> users = UserStore.Load();
+                    string name = user.Box.Text.Trim().ToLowerInvariant();
+                    admin = users.Find(delegate(AppUser u) { return u.Name == name; });
+                    bool existed = admin != null;
+                    if (admin == null) { admin = UserStore.Create(name, pass.Box.Text, true); users.Add(admin); }
+                    else { UserStore.SetPassword(admin, pass.Box.Text); admin.Admin = true; }
+                    UserStore.Save(users);
+                    Session.User = admin;
+                    Audit.Write("ADMIN_RESET", (existed ? "nuova password per l'amministratore " : "creato l'amministratore ") + admin.Name +
+                        " da utente Windows " + Environment.UserName);
+                }
+                else
+                {
+                    admin = UserStore.Create(user.Box.Text, pass.Box.Text, true);
+                    UserStore.Save(new List<AppUser> { admin });
+                    Session.User = admin;
+                    Audit.Write("SETUP", "creato l'amministratore " + admin.Name);
+                }
                 Session.User = null;
                 DialogResult = DialogResult.OK;
             }

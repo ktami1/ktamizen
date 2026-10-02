@@ -366,7 +366,7 @@ namespace PasswordOperatori
                 {
                     string[] p = line.Split(new string[] { " | " }, StringSplitOptions.None);
                     if (p.Length < 7) continue;
-                    if (p[4] == "LOGIN_OK") fails.Clear();
+                    if (p[4] == "LOGIN_OK" || p[4] == "SETUP" || p[4] == "ADMIN_RESET") fails.Clear();
                     else if (p[4] == "LOGIN_FAIL")
                     {
                         DateTimeOffset t;
