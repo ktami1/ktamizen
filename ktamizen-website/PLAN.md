@@ -1,6 +1,6 @@
 # KTAMIZEN landing site: PLAN
 
-Status: waiting for approval. Nothing is scaffolded yet.
+Status: dummy version built (no backend, local matcher). Sections 6.2 to 6.6 are the next step.
 
 Source of truth: the build brief. No `design.md` exists in the project (checked the repo and Google Drive), so the tokens in brief section 3 are the design system. If you have a design.md, send it and it overrides this plan on visual details.
 

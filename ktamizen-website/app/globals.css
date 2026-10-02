@@ -1,0 +1,345 @@
+@import "tailwindcss";
+
+/* Tokens. Every value lives here once and is exposed to Tailwind below. */
+:root {
+  --color-ink: #000000;
+  --color-paper: #ffffff;
+  --color-red: #d30000;
+  --color-red-press: #a80000;
+  --color-raised: #0b0b0b;
+  --color-hair: #1c1c1c;
+  --color-mute: #8a8a8a;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-enter: 700ms;
+  --dur-hover: 400ms;
+
+  --text-display: clamp(3.5rem, 1.4rem + 13.6vw, 10rem);
+  --text-h1: clamp(2.5rem, 1.17rem + 5.33vw, 6rem);
+  --text-h2: clamp(1.75rem, 1.08rem + 2.67vw, 3.5rem);
+  --text-body: clamp(1rem, 0.95rem + 0.19vw, 1.125rem);
+  --text-caption: clamp(0.75rem, 0.73rem + 0.1vw, 0.8125rem);
+
+  --track-serif: -0.06em;
+  --track-sans: -0.03em;
+  --track-caption: 0.08em;
+
+  --gutter: clamp(1.25rem, 0.5rem + 3vw, 3rem);
+}
+
+@theme inline {
+  --color-ink: var(--color-ink);
+  --color-paper: var(--color-paper);
+  --color-red: var(--color-red);
+  --color-red-press: var(--color-red-press);
+  --color-raised: var(--color-raised);
+  --color-hair: var(--color-hair);
+  --color-mute: var(--color-mute);
+
+  --font-serif: var(--font-instrument), "Times New Roman", serif;
+  --font-sans: var(--font-inter-tight), system-ui, sans-serif;
+  --font-script: var(--font-sloop), var(--font-instrument), serif;
+
+  --text-display: var(--text-display);
+  --text-h1: var(--text-h1);
+  --text-h2: var(--text-h2);
+  --text-body: var(--text-body);
+  --text-caption: var(--text-caption);
+
+  --ease-out: var(--ease-out);
+  --radius-pill: 9999px;
+}
+
+/* Sloop Script Pro: see README to activate the licensed file. */
+
+:root {
+  --font-sloop: "Sloop Script Pro";
+  color-scheme: dark;
+}
+
+html {
+  background: var(--color-ink);
+  color: var(--color-paper);
+  -webkit-text-size-adjust: 100%;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--text-body);
+  letter-spacing: var(--track-sans);
+  line-height: 1.45;
+  overflow-x: clip;
+}
+
+::selection {
+  background: var(--color-red);
+  color: var(--color-paper);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-red);
+  outline-offset: 4px;
+}
+.on-red :focus-visible {
+  outline-color: var(--color-paper);
+}
+
+/* Type primitives */
+.serif {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  letter-spacing: var(--track-serif);
+  line-height: 0.92;
+}
+.caption {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: var(--text-caption);
+  letter-spacing: var(--track-caption);
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+.gutter {
+  padding-inline: var(--gutter);
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* Buttons */
+.btn {
+  --btn-bg: transparent;
+  --btn-fg: var(--color-paper);
+  --btn-line: var(--color-paper);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 28px;
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: var(--track-sans);
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  box-shadow: inset 0 0 0 1px var(--btn-line);
+}
+.btn-primary {
+  --btn-bg: var(--color-red);
+  --btn-line: var(--color-red);
+}
+.btn-primary:hover {
+  --btn-bg: var(--color-paper);
+  --btn-fg: var(--color-ink);
+  --btn-line: var(--color-paper);
+}
+.btn-primary:active {
+  --btn-bg: var(--color-red-press);
+  --btn-fg: var(--color-paper);
+  --btn-line: var(--color-red-press);
+}
+.btn-ghost {
+  --btn-bg: var(--color-ink);
+}
+.btn-ghost:hover {
+  --btn-bg: var(--color-paper);
+  --btn-fg: var(--color-ink);
+}
+.btn-ghost:active {
+  --btn-bg: var(--color-red-press);
+  --btn-fg: var(--color-paper);
+  --btn-line: var(--color-red-press);
+}
+.btn-white {
+  --btn-bg: var(--color-paper);
+  --btn-fg: var(--color-ink);
+  --btn-line: var(--color-paper);
+}
+.btn-white:hover {
+  --btn-bg: var(--color-ink);
+  --btn-fg: var(--color-paper);
+  --btn-line: var(--color-ink);
+}
+.btn-white:active {
+  --btn-bg: var(--color-red-press);
+  --btn-fg: var(--color-paper);
+  --btn-line: var(--color-paper);
+}
+.btn .arrow {
+  transition: transform var(--dur-hover) var(--ease-out);
+}
+.btn:hover .arrow {
+  transform: translateX(4px);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 9999px;
+  box-shadow: inset 0 0 0 1px var(--color-hair);
+  color: var(--color-paper);
+  font-size: 14px;
+  letter-spacing: var(--track-sans);
+  transition:
+    box-shadow var(--dur-hover) var(--ease-out),
+    color var(--dur-hover) var(--ease-out);
+}
+.chip:hover,
+.chip[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 1px var(--color-red);
+}
+
+.link-line {
+  background: linear-gradient(currentColor, currentColor) 0 100% / 0% 1px no-repeat;
+  transition: background-size var(--dur-hover) var(--ease-out);
+}
+.link-line:hover {
+  background-size: 100% 1px;
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ask input caret */
+.ask-input {
+  caret-color: var(--color-red);
+}
+/* The red rule is the focus indicator here: it thickens instead of an outline. */
+.ask-input:focus-visible {
+  outline: none;
+}
+.ask-rule {
+  box-shadow: inset 0 -1px 0 var(--color-red);
+  transition: box-shadow var(--dur-hover) var(--ease-out);
+}
+.ask-rule:focus-within {
+  box-shadow: inset 0 -3px 0 var(--color-red);
+}
+.ask-input::placeholder {
+  color: #3a3a3a;
+  opacity: 1;
+}
+
+/* FAQ accordion */
+.faq summary {
+  list-style: none;
+  cursor: pointer;
+}
+.faq summary::-webkit-details-marker {
+  display: none;
+}
+.faq .plus {
+  transition: transform var(--dur-hover) var(--ease-out);
+}
+.faq details[open] .plus {
+  transform: rotate(45deg);
+}
+
+/* Preloader. Only exists with JS, motion allowed, first visit. */
+.preloader {
+  display: none;
+}
+.js.motion:not(.seen) .preloader {
+  display: flex;
+}
+
+/* Initial hidden states. Scoped so JS off and reduced motion see final states. */
+.js.motion [data-reveal] {
+  opacity: 0;
+}
+.js.motion .hero-pin {
+  height: 260svh;
+}
+@media (max-width: 767px) {
+  .js.motion .hero-pin {
+    height: 170svh;
+  }
+}
+.js.motion .chapter {
+  height: 190svh;
+}
+.js.motion .chapter-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+}
+.js.motion .hero-sticky {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+}
+
+/* Grain */
+.grain {
+  position: fixed;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.07;
+  mix-blend-mode: screen;
+  image-rendering: pixelated;
+}
+
+/* Cursor */
+.cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 80;
+  pointer-events: none;
+  display: none;
+}
+@media (hover: hover) and (pointer: fine) {
+  .js .cursor {
+    display: block;
+  }
+  .js.has-cursor,
+  .js.has-cursor * {
+    cursor: none !important;
+  }
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@keyframes cue {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(260%); }
+}
+.cue-dot {
+  animation: cue 1.8s var(--ease-out) infinite;
+}
