@@ -88,4 +88,8 @@ Il codice è diviso in tre file: `PasswordOperatori.cs` (interfaccia), `Security
 permessi) e `AdminForms.cs` (configurazione, utenti, registro). Percorso predefinito, tempi di blocco e
 regole delle password sono nella classe `Config`. Al termine `build.bat` stampa l'impronta SHA-256 dell'exe.
 
+Da Linux o macOS: `./build.sh` (Mono). Compila **contro le API di .NET Framework 4.0** (`/usr/lib/mono/4.0-api`):
+Mono contiene metodi che su Windows non esistono (es. `String.Split(char, …)`), e un exe compilato con le librerie
+di Mono può fermarsi su Windows con "Impossibile trovare il metodo".
+
 In `esempio/M_CTL999.DAT` c'è un file di prova.
