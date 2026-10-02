@@ -18,6 +18,9 @@ export const Product: React.FC = () => {
   return (
     <AbsoluteFill style={{background: INK, fontFamily: FONT, perspective: 2200}}>
       <Backlight x={1410} y={560} r={820} o={ease(f, 0, 60)} />
+      <div style={{position: 'absolute', left: 142, top: 300, width: 860, opacity: ease(f, 20, 40)}}>
+        <div style={{fontSize: 28, fontWeight: 700, color: OR, letterSpacing: '0.12em'}}>IN NEGOZIO, IN AUTONOMIA</div>
+      </div>
       <div style={{position: 'absolute', left: 140, top: 410, width: 860}}>
         <BlurIn f={f} at={30} out={92} text="Scrivi il codice." style={LEFT} />
       </div>
@@ -32,7 +35,7 @@ export const Product: React.FC = () => {
         <div style={{position: 'absolute', left: 142, top: 700, display: 'flex', alignItems: 'center', gap: 14, background: 'rgba(255,255,255,0.08)',
           borderRadius: 99, padding: '16px 28px', fontSize: 26, color: 'rgba(255,255,255,0.8)', whiteSpace: 'nowrap',
           opacity: ease(f, P.reveal + 10, P.reveal + 24), translate: `0px ${ease(f, P.reveal + 10, P.reveal + 30, 20, 0)}px`}}>
-          <Dot color={LED.open} size={12} glow={1} /> Registrato nel log · anna · operatore 0009
+          <Dot color={LED.open} size={12} glow={1} /> Registrato nel log · direttore · operatore 0009
         </div>
       )}
       <div style={{position: 'absolute', left: 1060, top: 90, width: APP_W, height: APP_H, transformStyle: 'preserve-3d',

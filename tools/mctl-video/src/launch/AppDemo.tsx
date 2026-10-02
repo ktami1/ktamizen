@@ -28,7 +28,7 @@ export const AppDemo: React.FC<{f: number; typing: [number, string][]; reveal: n
         <div style={{width: 7, height: 7, borderRadius: 4, background: OR, marginLeft: -9, marginTop: 10}} />
         <div style={{flex: 1, textAlign: 'right', color: 'rgba(255,255,255,0.6)', fontSize: 12}}>Aggiornato alle 13:53:02</div>
         <div style={{border: '1px solid #fff', borderRadius: 99, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '9px 20px'}}>Aggiorna</div>
-        <div style={{background: OR, borderRadius: 99, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '9px 18px'}}>anna ▾</div>
+        <div style={{background: OR, borderRadius: 99, color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '9px 18px'}}>direttore ▾</div>
       </div>
       <div style={{position: 'absolute', left: 28, top: 102, width: 644, height: 56, borderRadius: 28, background: '#fff', boxSizing: 'border-box',
         border: focused ? `2px solid ${OR}` : `1px solid ${BORDER}`, display: 'flex', alignItems: 'center', padding: '0 22px', gap: 14, fontSize: 18, color: INK}}>

@@ -17,7 +17,7 @@ export const Outro: React.FC = () => {
         <Wordmark size={128} color={INK} />
       </div>
       <div style={{position: 'absolute', top: 560, width: '100%'}}>
-        <BlurIn f={f} at={20} text="Un solo .exe. Nessuna installazione." stagger={3} style={{fontSize: 46, color: GRAY_DARK}} />
+        <BlurIn f={f} at={20} text="Il punto vendita, in autonomia. Un solo .exe." stagger={3} style={{fontSize: 46, color: GRAY_DARK}} />
       </div>
       <div style={{position: 'absolute', top: 660, width: '100%', display: 'flex', justifyContent: 'center'}}>
         <div style={{background: OR, color: '#fff', fontSize: 34, fontWeight: 700, padding: '22px 56px', borderRadius: 999, scale: String(pill), opacity: Math.min(1, pill * 2)}}>

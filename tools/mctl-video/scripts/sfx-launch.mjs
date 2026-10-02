@@ -177,8 +177,10 @@ click(sec(S.product + P.reveal), 1.3);
 chime(sec(S.product + P.reveal) + 0.03, [76, 81, 85], 1.1);
 pop(sec(S.product + P.reveal + 10), 900, 0.6);
 whoosh(sec(S.resolved) - 0.2, 0.6, 0.8);
-chime(sec(S.resolved + 40), [81, 85, 88, 93], 1);
-for (let i = 0; i < 12; i++) pop(sec(S.resolved + 52 + i * 2.5), 640 + i * 45, 0.7, (i / 11) * 0.8 - 0.4);
+// conto alla rovescia 15 → 0, poi la conferma
+for (let i = 0; i < 15; i++) { const x = 1 - Math.sqrt(1 - (i + 1) / 15); click(sec(S.resolved + 10 + x * 42), 0.8); }
+boom(sec(S.resolved + 52), 0.8);
+chime(sec(S.resolved + 52), [81, 85, 88, 93], 1.1);
 
 // ---------------------------------------------------------------- 4. Sicurezza: quattro colpi
 
