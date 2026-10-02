@@ -12,6 +12,8 @@ import {Resolved} from './launch/Resolved';
 import {Security} from './launch/Security';
 import {Outro} from './launch/Outro';
 import L from './launch/timeline.json';
+import {HowTo} from './tutorial/HowTo';
+import H from './tutorial/timeline.json';
 import {TicketPromo, TICKET_DURATION, TICKET_FPS} from './TicketPromo';
 
 const weights: [string, string][] = [['Regular', '400'], ['Medium', '500'], ['Bold', '700'], ['Black', '900']];
@@ -25,6 +27,7 @@ loadFont({family: 'SysSans', url: staticFile('LiberationSans-Bold.ttf'), weight:
 export const Root: React.FC = () => (
   <>
     <Composition id="MctlPromo" component={Promo} durationInFrames={DURATION} fps={FPS} width={1920} height={1080} />
+    <Composition id="HowTo" component={HowTo} durationInFrames={H.duration} fps={H.fps} width={1920} height={1080} />
     <Composition id="Launch" component={Launch} durationInFrames={L.duration} fps={L.fps} width={1920} height={1080} />
     <Folder name="Launch-scene">
       <Composition id="L-Hook" component={Hook} durationInFrames={L.scenes.hook} fps={L.fps} width={1920} height={1080} />

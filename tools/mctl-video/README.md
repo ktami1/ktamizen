@@ -45,3 +45,13 @@ npm run render:launch   # musica (scripts/sfx-launch.mjs) + out/password-operato
 ```
 
 `remotion.config.ts` abilita WebGL (`angle`) per i light leak.
+
+## Tutorial 20 secondi: come si usa
+
+Composizione `HowTo` (1920x1080, 30 fps), file in `src/tutorial/`: titolo → 4 passi (Avvia l'exe, Accedi,
+Scrivi il codice, Clicca Mostra) con i passi a sinistra e lo schermo a destra, evidenziazioni su password,
+stato e LED → chiusura "Fatto. Nessun ticket.". Tempi in `src/tutorial/timeline.json`.
+
+```bash
+npm run render:howto   # musica (scripts/sfx-howto.mjs) + out/password-operatori-come-si-usa.mp4
+```

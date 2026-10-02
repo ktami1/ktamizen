@@ -7,7 +7,8 @@
     "studio": "remotion studio",
     "render": "node scripts/sfx.mjs && remotion render MctlPromo out/mctl-viewer.mp4",
     "render:ticket": "node scripts/sfx-ticket.mjs && remotion render TicketPromo out/password-operatori-ticket.mp4",
-    "render:launch": "node scripts/sfx-launch.mjs && remotion render Launch out/password-operatori-launch.mp4"
+    "render:launch": "node scripts/sfx-launch.mjs && remotion render Launch out/password-operatori-launch.mp4",
+    "render:howto": "node scripts/sfx-howto.mjs && remotion render HowTo out/password-operatori-come-si-usa.mp4"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.532",

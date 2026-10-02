@@ -1,0 +1,19 @@
+{
+  "fps": 30,
+  "duration": 600,
+  "fade": 15,
+  "scenes": {"title": 60, "steps": 480, "end": 90},
+  "start": {"title": 0, "steps": 45, "end": 510},
+  "steps": {
+    "active": [0, 110, 230, 330],
+    "dblclick": [48, 54],
+    "toLogin": 72,
+    "user": [128, 158],
+    "pass": [166, 186],
+    "login": 204,
+    "toApp": 218,
+    "typing": [[262, "0"], [270, "09"]],
+    "reveal": 360,
+    "callouts": 380
+  }
+}
